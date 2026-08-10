@@ -722,7 +722,7 @@ export default function ExcelToolsPage() {
                 placeholder="misal: NIK, Nama, Email"
               />
               {file1Preview?.columns && file1Preview.columns.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5 max-h-36 overflow-y-auto p-1 border border-border/40 rounded-md bg-muted/10">
+                <div className="flex flex-wrap gap-1.5 mt-2 max-h-40 overflow-y-auto p-2 border border-slate-700/60 dark:border-slate-700 rounded-lg bg-slate-900/60 dark:bg-slate-950/80 shadow-inner">
                   {file1Preview.columns.map((col, idx) => {
                     const isSelected = selectedKeyCols1Set.has(col);
                     return (
@@ -736,9 +736,9 @@ export default function ExcelToolsPage() {
                             setKeyCols1([...Array.from(selectedKeyCols1Set), col].join(", "));
                           }
                         }}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-all border ${isSelected
-                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold"
-                            : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm ${isSelected
+                            ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
+                            : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
                           }`}
                       >
                         {isSelected ? "✓ " : "+ "}{col}
@@ -770,7 +770,7 @@ export default function ExcelToolsPage() {
             />
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-muted-foreground">
+                <label className="text-xs font-semibold text-slate-900 dark:text-slate-100">
                   Kolom Kunci File 2 (pisahkan dengan koma):
                 </label>
                 <div className="flex items-center gap-2">
@@ -779,7 +779,7 @@ export default function ExcelToolsPage() {
                       type="button"
                       onClick={() => setKeyCols2(keyCols1)}
                       title="Salin persis urutan & susunan kolom kunci dari File 1"
-                      className="text-[10px] text-amber-400 hover:underline font-mono font-bold flex items-center gap-1 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30"
+                      className="text-[10px] text-amber-300 hover:underline font-mono font-bold flex items-center gap-1 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/40"
                     >
                       📋 Salin dari File 1
                     </button>
@@ -789,7 +789,7 @@ export default function ExcelToolsPage() {
                       <button
                         type="button"
                         onClick={() => setKeyCols2(file2Preview.columns.join(", "))}
-                        className="text-[10px] text-sky-400 hover:underline font-mono"
+                        className="text-[10px] text-sky-400 hover:underline font-mono font-bold"
                       >
                         Pilih Semua ({file2Preview.columns.length})
                       </button>
@@ -797,7 +797,7 @@ export default function ExcelToolsPage() {
                       <button
                         type="button"
                         onClick={() => setKeyCols2("")}
-                        className="text-[10px] text-rose-400 hover:underline font-mono"
+                        className="text-[10px] text-rose-400 hover:underline font-mono font-bold"
                       >
                         Hapus Semua
                       </button>
@@ -809,11 +809,11 @@ export default function ExcelToolsPage() {
                 type="text"
                 value={keyCols2}
                 onChange={(e) => setKeyCols2(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary font-mono text-slate-900 dark:text-slate-100 font-semibold"
                 placeholder="misal: NIK, Nama, Email"
               />
               {file2Preview?.columns && file2Preview.columns.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5 max-h-36 overflow-y-auto p-1 border border-border/40 rounded-md bg-muted/10">
+                <div className="flex flex-wrap gap-1.5 mt-2 max-h-40 overflow-y-auto p-2 border border-slate-700/60 dark:border-slate-700 rounded-lg bg-slate-900/60 dark:bg-slate-950/80 shadow-inner">
                   {file2Preview.columns.map((col, idx) => {
                     const isSelected = selectedKeyCols2Set.has(col);
                     return (
@@ -827,9 +827,9 @@ export default function ExcelToolsPage() {
                             setKeyCols2([...Array.from(selectedKeyCols2Set), col].join(", "));
                           }
                         }}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-all border ${isSelected
-                            ? "bg-sky-500/20 text-sky-300 border-sky-500/50 font-bold"
-                            : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm ${isSelected
+                            ? "bg-sky-400 text-slate-950 font-bold border-sky-300 ring-2 ring-sky-300/40"
+                            : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
                           }`}
                       >
                         {isSelected ? "✓ " : "+ "}{col}
