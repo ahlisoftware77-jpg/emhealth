@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends
 from typing import Dict, Any
+import logging
 from app.core.config import settings
 from app.models.schemas import SettingsSchema
 from app.core.security import get_current_user, require_role
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -102,10 +105,11 @@ async def update_system_settings(
     firestore_msg = ""
     try:
         from app.core.firestore import firestore_service
+        firestore_service._init_firebase()
         if firestore_service.is_available:
             firestore_service.save_settings(env_updates)
             firestore_msg = " dan tersinkronisasi ke Cloud Firestore!"
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Re-init firestore warning: {e}")
 
     return {"status": "success", "message": f"Pengaturan sistem berhasil disimpan ke .env{firestore_msg}"}
