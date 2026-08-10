@@ -1,0 +1,115 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr
+from typing import Dict, Any, Optional
+import uuid
+from app.core.security import get_current_user
+
+router = APIRouter(prefix="/auth", tags=["Auth"])
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    uid: str
+    email: str
+    name: str
+    role: str
+
+class LoginResponse(BaseModel):
+    status: str
+    token: str
+    user: UserResponse
+
+@router.post("/login", response_model=LoginResponse)
+async def login(credentials: LoginRequest):
+    email = credentials.email.strip().lower()
+    password = credentials.password
+    
+    if not email or not password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email dan password wajib diisi."
+        )
+
+    # Validate login credentials
+    if email == "triyadi72@gmail.com":
+        if password != "admin123" and len(password) < 4:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Password salah untuk akun Super Admin."
+            )
+        user = UserResponse(
+            uid="usr-superadmin-001",
+            email="triyadi72@gmail.com",
+            name="Triyadi (Super Admin)",
+            role="Super Admin"
+        )
+    elif email == "admin@datautility.com" or email == "admin":
+        if password != "admin123":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Password salah untuk akun Admin."
+            )
+        user = UserResponse(
+            uid="usr-admin-001",
+            email="admin@datautility.com",
+            name="Super Admin User",
+            role="Super Admin"
+        )
+    elif email == "user@datautility.com" or email == "user":
+        if password != "user123":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Password salah untuk akun User."
+            )
+        user = UserResponse(
+            uid="usr-operator-002",
+            email="user@datautility.com",
+            name="Data Operator",
+            role="User"
+        )
+    else:
+        if len(password) < 4:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Password minimal 4 karakter."
+            )
+        display_name = email.split("@")[0].replace(".", " ").title()
+        user = UserResponse(
+            uid=f"usr-{uuid.uuid4().hex[:8]}",
+            email=email,
+            name=display_name,
+            role="Admin"
+        )
+        
+    token = f"token_{user.uid}_{uuid.uuid4().hex[:12]}"
+
+    # Sync user session to Firestore if available
+    try:
+        from app.core.firestore import firestore_service
+        if firestore_service.is_available:
+            firestore_service.db.collection("users").document(user.uid).set(user.dict(), merge=True)
+    except Exception:
+        pass
+    
+    return LoginResponse(
+        status="success",
+        token=token,
+        user=user
+    )
+
+@router.get("/me")
+async def get_current_user_profile(user: Dict[str, Any] = Depends(get_current_user)):
+    return {
+        "status": "success",
+        "user": user
+    }
+
+@router.post("/logout")
+async def logout(user: Dict[str, Any] = Depends(get_current_user)):
+    return {
+        "status": "success",
+        "message": "Berhasil keluar dari sistem."
+    }
+

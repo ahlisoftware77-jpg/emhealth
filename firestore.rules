@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is Super Admin or Admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "triyadi72@gmail.com" || 
+         request.auth.token.role == "Super Admin" || 
+         request.auth.token.role == "Admin");
+    }
+
+    // Helper function to check if user is Super Admin (Triyadi)
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "triyadi72@gmail.com" || 
+         request.auth.token.role == "Super Admin");
+    }
+
+    // Rules for Jobs Collection
+    match /jobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Rules for Presets Collection
+    match /presets/{presetId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Rules for Users Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+    }
+
+    // Rules for System Settings Collection
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+  }
+}
