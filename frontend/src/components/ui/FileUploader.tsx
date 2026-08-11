@@ -25,10 +25,11 @@ export function FileUploader({
 }: FileUploaderProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     accept,
     multiple,
     maxFiles,
+    maxSize: 4 * 1024 * 1024, // 4MB
     onDrop: (acceptedFiles) => {
       setSelectedFiles(acceptedFiles);
       onFilesSelected(acceptedFiles);
@@ -69,6 +70,13 @@ export function FileUploader({
         <p className="text-sm font-semibold text-foreground">{label}</p>
         <p className="text-xs text-muted-foreground mt-1">{sublabel}</p>
       </div>
+      
+      {fileRejections.length > 0 && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-500">
+          <strong>Perhatian:</strong> {fileRejections.length} file ditolak karena ukurannya melebihi batas 4MB. 
+          Vercel membatasi upload maksimal 4.5MB. Harap perkecil file tersebut atau hapus dari folder Anda.
+        </div>
+      )}
 
       {selectedFiles.length > 0 && (
         <div className="space-y-2">

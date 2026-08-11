@@ -106,7 +106,13 @@ export const ExcelAPI = {
 
 export const ImageAPI = {
   upload: async (files: File[]) => {
-    const MAX_CHUNK_SIZE = 3 * 1024 * 1024; // 3MB per request to avoid Vercel 4.5MB limit
+    const MAX_SINGLE_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+    const oversizedFiles = files.filter(f => f.size > MAX_SINGLE_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      throw new Error(`Terdapat ${oversizedFiles.length} gambar yang melebihi batas 4MB (Batas maksimal server Vercel). Contoh: ${oversizedFiles.map(f => f.name).slice(0, 2).join(", ")}`);
+    }
+
+    const MAX_CHUNK_SIZE = 2 * 1024 * 1024; // 2MB per request to avoid Vercel 4.5MB limit
     let currentChunkSize = 0;
     let currentBatch: File[] = [];
     const results = [];
