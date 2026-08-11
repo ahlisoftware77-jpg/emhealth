@@ -1,5 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException, Depends
 from typing import List, Dict, Any
+import os
+import subprocess
 from pathlib import Path
 from app.core.config import settings
 from app.core.storage import storage_manager
@@ -27,6 +29,56 @@ async def upload_image_files(files: List[UploadFile] = File(...), user: Dict[str
             "size": len(content)
         })
     return {"status": "success", "files": uploaded}
+
+@router.post("/generate-code")
+async def generate_ui_code(req: CodeGenRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    try:
+        html_code = CodeGenService.generate_from_image(req.image_name, req.framework)
+        return {"status": "success", "code": html_code}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def process_local_script_job(job_id: str):
+    try:
+        job_queue_service.update_job(job_id, status="Running", progress=10.0, message="Menyiapkan eksekusi script lokal...")
+        
+        script_path = settings.BASE_DIR / "manual" / "compress_images.py"
+        if not script_path.exists():
+            raise Exception(f"Script lokal tidak ditemukan di: {script_path}")
+        
+        job_queue_service.update_job(job_id, status="Running", progress=50.0, message="Mengeksekusi compress_images.py...")
+        
+        # Eksekusi python script secara synchronous dalam background thread
+        result = subprocess.run(
+            ["python", str(script_path)],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if result.returncode != 0:
+            raise Exception(f"Eksekusi gagal:\n{result.stderr}")
+            
+        job_queue_service.update_job(
+            job_id,
+            status="Completed",
+            progress=100.0,
+            message="Berhasil menjalankan kompresi 1GB+ secara lokal."
+        )
+    except Exception as e:
+        job_queue_service.update_job(job_id, status="Failed", error_detail=str(e))
+
+@router.post("/run-local-script")
+async def run_local_script(bg_tasks: BackgroundTasks, user: Dict[str, Any] = Depends(get_current_user)):
+    if os.environ.get("VERCEL") == "1":
+        raise HTTPException(
+            status_code=403, 
+            detail="Fitur ini HANYA BISA DIJALANKAN secara lokal (Localhost). Vercel tidak diizinkan mengakses sistem file D:\\ Anda."
+        )
+        
+    job = job_queue_service.create_job("Local Mass Compress", "Menjalankan compress_images.py")
+    bg_tasks.add_task(process_local_script_job, job["job_id"])
+    return {"status": "success", "job": job}
 
 @router.post("/rename/preview")
 async def preview_image_rename(req: ImageRenamePreviewRequest, user: Dict[str, Any] = Depends(get_current_user)):

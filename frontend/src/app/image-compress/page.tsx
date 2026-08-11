@@ -45,6 +45,23 @@ export default function ImageCompressPage() {
     }
   };
 
+  const handleLocalCompress = async () => {
+    setIsProcessing(true);
+    setMessage(null);
+    try {
+      const res = await ImageAPI.runLocalScript();
+      setMessage(`Proses lokal dijadwalkan (ID: ${res.job.job_id}). Pantau di Job Queue.`);
+    } catch (err: any) {
+      if (err.response?.data?.detail) {
+        setMessage(`Error: ${err.response.data.detail}`);
+      } else {
+        setMessage(`Gagal menjalankan script lokal: ${err.message}`);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Title */}
@@ -199,6 +216,36 @@ export default function ImageCompressPage() {
             <span>{isProcessing ? "Mengompresi Gambar..." : "Mulai Kompresi Massal"}</span>
           </button>
         </div>
+      </div>
+
+      {/* Local Script Execution Card */}
+      <div className="bg-card border border-emerald-500/30 rounded-xl p-5 md:p-6 shadow-lg shadow-emerald-500/5 mt-8">
+        <h2 className="text-sm font-bold text-emerald-500 flex items-center gap-2 mb-2">
+          <Zap className="w-4 h-4" />
+          Kompresi Ekstrem (Skala Gigabyte / Mode Offline)
+        </h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Gunakan fitur ini jika Anda memiliki ribuan foto (lebih dari 1GB). Fitur ini akan langsung memicu eksekusi *script* Python 
+          <code> manual/compress_images.py </code> yang akan membaca file dari <code> D:\COMPRESS\foto asli </code> 
+          dan menyimpannya di <code> D:\COMPRESS\output </code> secara otomatis.
+        </p>
+        
+        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-500 mb-4 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <strong>Syarat Penting:</strong> Tombol ini HANYA BISA BERFUNGSI jika Anda sedang menjalankan aplikasi Web ini di komputer Anda sendiri (Localhost). 
+            Jika Anda membukanya melalui Vercel, server akan menolak akses tersebut.
+          </div>
+        </div>
+
+        <button
+          onClick={handleLocalCompress}
+          disabled={isProcessing}
+          className="w-full py-2.5 rounded-md bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
+        >
+          <Zap className="w-4 h-4" />
+          <span>{isProcessing ? "Memicu Eksekusi..." : "Jalankan Kompresi Massal (Mode Lokal)"}</span>
+        </button>
       </div>
     </div>
   );

@@ -179,6 +179,10 @@ export const ImageAPI = {
     const res = await apiClient.post("/image/code-gen", payload);
     return res.data;
   },
+  runLocalScript: async () => {
+    const res = await apiClient.post("/image/run-local-script");
+    return res.data;
+  },
 };
 
 export const CloudinaryAPI = {
