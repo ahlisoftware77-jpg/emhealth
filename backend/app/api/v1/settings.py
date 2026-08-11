@@ -83,23 +83,26 @@ async def update_system_settings(
     if req.firebase_app_id is not None:
         settings.FIREBASE_APP_ID = req.firebase_app_id
 
-    # Persist settings permanently into backend .env file
-    from app.core.config import save_settings_to_env
-    env_updates = {
-        "PRIMARY_STORAGE_ENGINE": settings.PRIMARY_STORAGE_ENGINE,
-        "TESSERACT_CMD": settings.TESSERACT_CMD,
-        "CLOUDINARY_CLOUD_NAME": settings.CLOUDINARY_CLOUD_NAME,
-        "CLOUDINARY_API_KEY": settings.CLOUDINARY_API_KEY,
-        "CLOUDINARY_API_SECRET": settings.CLOUDINARY_API_SECRET,
-        "OPENAI_API_KEY": settings.OPENAI_API_KEY,
-        "GEMINI_API_KEY": settings.GEMINI_API_KEY,
-        "DEEPSEEK_API_KEY": settings.DEEPSEEK_API_KEY,
-        "PRIMARY_AI_PROVIDER": settings.PRIMARY_AI_PROVIDER,
-        "FIREBASE_API_KEY": settings.FIREBASE_API_KEY,
-        "FIREBASE_PROJECT_ID": settings.FIREBASE_PROJECT_ID,
-        "FIREBASE_SERVICE_ACCOUNT_JSON": settings.FIREBASE_SERVICE_ACCOUNT_JSON,
-    }
-    save_settings_to_env(env_updates)
+    # Persist settings permanently into backend .env file (safe try-except for cloud read-only filesystems)
+    try:
+        from app.core.config import save_settings_to_env
+        env_updates = {
+            "PRIMARY_STORAGE_ENGINE": settings.PRIMARY_STORAGE_ENGINE,
+            "TESSERACT_CMD": settings.TESSERACT_CMD,
+            "CLOUDINARY_CLOUD_NAME": settings.CLOUDINARY_CLOUD_NAME,
+            "CLOUDINARY_API_KEY": settings.CLOUDINARY_API_KEY,
+            "CLOUDINARY_API_SECRET": settings.CLOUDINARY_API_SECRET,
+            "OPENAI_API_KEY": settings.OPENAI_API_KEY,
+            "GEMINI_API_KEY": settings.GEMINI_API_KEY,
+            "DEEPSEEK_API_KEY": settings.DEEPSEEK_API_KEY,
+            "PRIMARY_AI_PROVIDER": settings.PRIMARY_AI_PROVIDER,
+            "FIREBASE_API_KEY": settings.FIREBASE_API_KEY,
+            "FIREBASE_PROJECT_ID": settings.FIREBASE_PROJECT_ID,
+            "FIREBASE_SERVICE_ACCOUNT_JSON": settings.FIREBASE_SERVICE_ACCOUNT_JSON,
+        }
+        save_settings_to_env(env_updates)
+    except Exception as env_err:
+        logger.warning(f"Tidak dapat menulis file .env (mungkin read-only filesystem cloud): {env_err}")
 
     # Re-trigger Firestore init (non-blocking attempt)
     firestore_msg = ""
@@ -112,4 +115,4 @@ async def update_system_settings(
     except Exception as e:
         logger.warning(f"Re-init firestore warning: {e}")
 
-    return {"status": "success", "message": f"Pengaturan sistem berhasil disimpan ke .env{firestore_msg}"}
+    return {"status": "success", "message": f"Pengaturan sistem berhasil disimpan!{firestore_msg}"}
