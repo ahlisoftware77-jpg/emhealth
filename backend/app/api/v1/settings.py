@@ -50,7 +50,7 @@ async def get_system_settings(user: Dict[str, Any] = Depends(get_current_user)):
 @router.put("")
 async def update_system_settings(
     req: SettingsSchema,
-    user: Dict[str, Any] = Depends(require_role(["Super Admin", "Admin"]))
+    user: Dict[str, Any] = Depends(require_role(["Super Admin", "Admin", "User"]))
 ):
     settings.PRIMARY_STORAGE_ENGINE = req.primary_storage_engine
     if req.tesseract_cmd:
