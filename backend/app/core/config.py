@@ -34,12 +34,12 @@ class Settings(BaseSettings):
     PRIMARY_AI_PROVIDER: str = "openai"  # 'openai', 'gemini', or 'deepseek'
 
     # Firebase Client Config
-    FIREBASE_API_KEY: str = ""
-    FIREBASE_AUTH_DOMAIN: str = ""
-    FIREBASE_PROJECT_ID: str = ""
-    FIREBASE_STORAGE_BUCKET: str = ""
-    FIREBASE_MESSAGING_SENDER_ID: str = ""
-    FIREBASE_APP_ID: str = ""
+    FIREBASE_API_KEY: str = "AIzaSyCNMpji_vl1jfs6NIUZ_ohsr1VRQaTm9KI"
+    FIREBASE_AUTH_DOMAIN: str = "emhealth-project.firebaseapp.com"
+    FIREBASE_PROJECT_ID: str = "emhealth-project"
+    FIREBASE_STORAGE_BUCKET: str = "emhealth-project.firebasestorage.app"
+    FIREBASE_MESSAGING_SENDER_ID: str = "514468523871"
+    FIREBASE_APP_ID: str = "1:514468523871:web:0156bcc56111e42af2d0ea"
 
     # Firebase Service Account Credentials Path or Raw JSON string
     FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
