@@ -64,10 +64,12 @@ export default function LoginPage() {
       } catch (err: any) {
         // Safe Client-Side Fallback jika terjadi kegagalan jaringan XHR pada m.send()
         const isSuperAdmin = email.trim().toLowerCase() === "triyadi72@gmail.com";
+        const rawName = email.split("@")[0].replace(".", " ");
+        const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
         const fallbackUser = {
           uid: isSuperAdmin ? "usr-superadmin-001" : "usr-local-operator",
           email: email,
-          name: isSuperAdmin ? "Triyadi (Super Admin)" : email.split("@")[0].replace(".", " ").title(),
+          name: isSuperAdmin ? "Triyadi (Super Admin)" : formattedName,
           role: (isSuperAdmin ? "Super Admin" : "User") as any
         };
         localStorage.setItem("auth_token", `token_${fallbackUser.uid}_local`);
