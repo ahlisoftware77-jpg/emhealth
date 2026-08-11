@@ -114,13 +114,20 @@ def process_dedup_job(job_id: str, req: RemoveDuplicateRequest):
             req.sort_order, 
             req.export_format
         )
+        job_queue_service.update_job(job_id, status="Running", progress=90.0, message="Mengunggah hasil...")
+        
+        cloudinary_url = None
+        if settings.PRIMARY_STORAGE_ENGINE == "cloudinary":
+            cloudinary_url = storage_manager.upload_to_cloudinary_unsigned(out_path)
+            
+        final_url = cloudinary_url if cloudinary_url else f"/api/v1/storage/download/{out_path.name}"
         
         job_queue_service.update_job(
             job_id,
             status="Completed",
             progress=100.0,
-            message=f"Selesai! {summary['removed_duplicates']} baris duplikat dihapus.",
-            result_url=f"/api/v1/storage/download/{out_path.name}",
+            message=f"Selesai! {summary['removed_duplicates']} baris duplikat dihapus." + (" (Tersimpan di Cloud)" if cloudinary_url else " (Tersimpan Lokal)"),
+            result_url=final_url,
             download_filename=out_path.name
         )
     except Exception as e:

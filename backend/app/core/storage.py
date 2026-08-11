@@ -37,6 +37,31 @@ class StorageManager:
             f.write(content)
         return file_path
 
+    def upload_to_cloudinary_unsigned(self, file_path: Path) -> str:
+        if not settings.CLOUDINARY_CLOUD_NAME or not settings.CLOUDINARY_UPLOAD_PRESET:
+            logger.warning("Cloudinary Unsigned Upload is not configured (missing CLOUDINARY_CLOUD_NAME or CLOUDINARY_UPLOAD_PRESET).")
+            return None
+            
+        import requests
+        url = f"https://api.cloudinary.com/v1_1/{settings.CLOUDINARY_CLOUD_NAME}/raw/upload"
+        
+        try:
+            with open(file_path, "rb") as f:
+                response = requests.post(url, data={
+                    "upload_preset": settings.CLOUDINARY_UPLOAD_PRESET
+                }, files={
+                    "file": f
+                })
+            
+            if response.status_code == 200:
+                return response.json().get("secure_url")
+            else:
+                logger.error(f"Cloudinary upload failed: {response.text}")
+                return None
+        except Exception as e:
+            logger.error(f"Cloudinary upload error: {e}")
+            return None
+
     def get_storage_stats(self) -> Dict[str, Any]:
         def get_dir_size(path: Path) -> int:
             total = 0

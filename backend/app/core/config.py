@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
+    CLOUDINARY_UPLOAD_PRESET: str = ""
     
     # Tesseract OCR Executable Path
     TESSERACT_CMD: str = r"C:\Program Files\Tesseract-OCR\tesseract.exe" if os.name == 'nt' else "/usr/bin/tesseract"
