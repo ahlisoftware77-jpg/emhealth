@@ -2,8 +2,13 @@ import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
+import tempfile
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-STORAGE_BASE = BASE_DIR / "storage"
+if os.environ.get("VERCEL") == "1":
+    STORAGE_BASE = Path(tempfile.gettempdir()) / "emhealth_storage"
+else:
+    STORAGE_BASE = BASE_DIR / "storage"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Data Utility Center API"
