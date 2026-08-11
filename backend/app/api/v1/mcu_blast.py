@@ -251,6 +251,7 @@ async def process_images(
     excel_file: Optional[UploadFile] = File(None),
     images: List[UploadFile] = File(...)
 ):
+    _ensure_dirs()  # Pastikan direktori output ada sebelum digunakan
     if excel_file:
         content = await excel_file.read()
         recipients = parse_excel_recipients(content)
