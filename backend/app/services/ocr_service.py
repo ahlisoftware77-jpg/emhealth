@@ -1,5 +1,11 @@
 import os
-import pytesseract
+try:
+    import pytesseract
+    PYTESSERACT_AVAILABLE = True
+except ImportError:
+    pytesseract = None  # type: ignore
+    PYTESSERACT_AVAILABLE = False
+
 from PIL import Image
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
@@ -10,12 +16,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Configure pytesseract path if binary exists
-if os.path.exists(settings.TESSERACT_CMD):
+if PYTESSERACT_AVAILABLE and os.path.exists(settings.TESSERACT_CMD):
     pytesseract.pytesseract.tesseract_cmd = settings.TESSERACT_CMD
 
 class OCRService:
     @staticmethod
     def extract_text_from_image(image_path: Path, lang: str = "ind+eng") -> str:
+        if not PYTESSERACT_AVAILABLE:
+            return "[OCR tidak tersedia di lingkungan ini. Pytesseract tidak terinstall.]"
         try:
             with Image.open(image_path) as img:
                 text = pytesseract.image_to_string(img, lang=lang)
