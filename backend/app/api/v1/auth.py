@@ -6,6 +6,21 @@ from app.core.security import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    uid: str
+    email: str
+    name: str
+    role: str
+
+class LoginResponse(BaseModel):
+    status: str
+    token: str
+    user: UserResponse
+
 class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
