@@ -40,10 +40,16 @@ class StorageManager:
     def get_storage_stats(self) -> Dict[str, Any]:
         def get_dir_size(path: Path) -> int:
             total = 0
-            if path.exists():
-                for p in path.glob('**/*'):
-                    if p.is_file():
-                        total += p.stat().st_size
+            try:
+                if path.exists():
+                    for p in path.glob('**/*'):
+                        if p.is_file():
+                            try:
+                                total += p.stat().st_size
+                            except Exception:
+                                pass
+            except Exception:
+                pass
             return total
 
         upload_size = get_dir_size(settings.UPLOAD_DIR)
