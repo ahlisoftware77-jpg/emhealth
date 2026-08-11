@@ -431,8 +431,7 @@ export default function ExcelToolsPage() {
       setKeyCols2(keyCols1);
     }
 
-    // Automatically enable key column preview mode to display synchronized matching view
-    setShowOnlyKeyColumns(true);
+    // Keep full column preview visible during comparison
     setShowPreview(true);
 
     setIsProcessing(true);
