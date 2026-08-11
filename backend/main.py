@@ -1,4 +1,8 @@
-import uvicorn
+try:
+    import uvicorn
+except ImportError:
+    uvicorn = None  # type: ignore  # Tidak diperlukan di Vercel Serverless
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -78,5 +82,8 @@ async def health_check():
 
 if __name__ == "__main__":
     import os
-    port = int(os.getenv("PORT", 8003))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    if uvicorn is None:
+        print("uvicorn tidak tersedia. Jalankan dengan: uvicorn main:app --reload")
+    else:
+        port = int(os.getenv("PORT", 8003))
+        uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
