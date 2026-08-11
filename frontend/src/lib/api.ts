@@ -106,12 +106,39 @@ export const ExcelAPI = {
 
 export const ImageAPI = {
   upload: async (files: File[]) => {
-    const formData = new FormData();
-    files.forEach((f) => formData.append("files", f));
-    const res = await apiClient.post("/image/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return res.data;
+    const MAX_CHUNK_SIZE = 3 * 1024 * 1024; // 3MB per request to avoid Vercel 4.5MB limit
+    let currentChunkSize = 0;
+    let currentBatch: File[] = [];
+    const results = [];
+    
+    const uploadBatch = async (batch: File[]) => {
+      const formData = new FormData();
+      batch.forEach((f) => formData.append("files", f));
+      const res = await apiClient.post("/image/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data;
+    };
+
+    for (const f of files) {
+      if (currentBatch.length > 0 && currentChunkSize + f.size > MAX_CHUNK_SIZE) {
+        results.push(await uploadBatch(currentBatch));
+        currentBatch = [];
+        currentChunkSize = 0;
+      }
+      currentBatch.push(f);
+      currentChunkSize += f.size;
+    }
+    
+    if (currentBatch.length > 0) {
+      results.push(await uploadBatch(currentBatch));
+    }
+    
+    // Gabungkan hasil respons dari setiap batch (asumsi backend membalas { status: "success", files: [...] })
+    return {
+      status: "success",
+      files: results.flatMap((r) => r.files || [])
+    };
   },
   previewRename: async (payload: any) => {
     const res = await apiClient.post("/image/rename/preview", payload);
