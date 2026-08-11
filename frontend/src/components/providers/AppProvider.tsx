@@ -30,7 +30,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // SSE Stream for Realtime Job Progress Updates
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== "undefined" ? "/api/v1" : "http://localhost:8003/api/v1");
+    const apiUrl = typeof window !== "undefined"
+      ? (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes("onrender.com") && !process.env.NEXT_PUBLIC_API_URL.includes("yourdomain.com") ? process.env.NEXT_PUBLIC_API_URL : "/api/v1")
+      : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003/api/v1");
     let eventSource: EventSource | null = null;
 
     try {
