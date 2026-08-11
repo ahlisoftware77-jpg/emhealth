@@ -62,8 +62,13 @@ async def save_preview_changes(req: SavePreviewRequest, user: Dict[str, Any] = D
 async def inspect_uploaded_file(file: UploadFile = File(...), user: Dict[str, Any] = Depends(get_current_user)):
     try:
         content = await file.read()
-        saved_path = storage_manager.save_local_file(content, file.filename, settings.UPLOAD_DIR)
-        data = await run_in_threadpool(ExcelService.get_columns_and_preview, saved_path)
+        # Baca langsung dari memory — tidak menyimpan ke disk.
+        # Ini penting agar bisa berjalan di Vercel (filesystem read-only).
+        data = await run_in_threadpool(
+            ExcelService.get_columns_and_preview_from_bytes,
+            content,
+            file.filename
+        )
         return {"status": "success", "data": data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Gagal membaca file Excel: {str(e)}")

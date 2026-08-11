@@ -2,6 +2,7 @@ import pandas as pd
 import openpyxl
 from rapidfuzz import process, fuzz
 from pathlib import Path
+from io import BytesIO
 from typing import List, Dict, Any, Tuple, Optional
 from app.core.config import settings
 import logging
@@ -18,6 +19,69 @@ class ExcelService:
             return pd.read_excel(file_path, dtype=str).fillna("")
         else:
             raise ValueError(f"Format file tidak didukung: {ext}")
+
+    @staticmethod
+    def get_columns_and_preview_from_bytes(content: bytes, filename: str, max_rows: int = 500) -> Dict[str, Any]:
+        """Membaca preview Excel/CSV langsung dari bytes di memory — tanpa menulis ke disk.
+        Digunakan untuk endpoint /inspect-file agar kompatibel dengan Vercel read-only filesystem."""
+        ext = Path(filename).suffix.lower()
+        try:
+            records = []
+            columns = []
+            bio = BytesIO(content)
+
+            if ext == ".csv":
+                bio.seek(0)
+                try:
+                    df = pd.read_csv(bio, dtype=str, nrows=max_rows).fillna("")
+                except Exception:
+                    bio.seek(0)
+                    df = pd.read_csv(bio, dtype=str).head(max_rows).fillna("")
+                columns = [str(c).strip() for c in df.columns.tolist()]
+                for row in df.head(max_rows).to_dict(orient="records"):
+                    clean_row = {str(k): "" if pd.isna(v) or v is None else str(v).strip() for k, v in row.items()}
+                    records.append(clean_row)
+            elif ext in [".xlsx", ".xls", ".xlsm", ".xlsb"]:
+                try:
+                    bio.seek(0)
+                    wb = openpyxl.load_workbook(filename=bio, read_only=True, data_only=True)
+                    sheet = wb.active
+                    headers = []
+                    for r_idx, row_values in enumerate(sheet.iter_rows(values_only=True)):
+                        if r_idx == 0:
+                            headers = [str(c).strip() if c is not None else f"Kolom_{j+1}" for j, c in enumerate(row_values)]
+                            columns = headers
+                        else:
+                            if not any(row_values):
+                                continue
+                            row_dict = {}
+                            for j, val in enumerate(row_values):
+                                col_name = headers[j] if j < len(headers) else f"Kolom_{j+1}"
+                                row_dict[col_name] = "" if val is None else str(val).strip()
+                            records.append(row_dict)
+                            if len(records) >= max_rows:
+                                break
+                    wb.close()
+                except Exception as ex_openpyxl:
+                    logger.warning(f"Fallback to pandas for {filename}: {ex_openpyxl}")
+                    bio.seek(0)
+                    df = pd.read_excel(bio, dtype=str).head(max_rows).fillna("")
+                    columns = [str(c).strip() for c in df.columns.tolist()]
+                    for row in df.head(max_rows).to_dict(orient="records"):
+                        clean_row = {str(k): "" if pd.isna(v) or v is None else str(v).strip() for k, v in row.items()}
+                        records.append(clean_row)
+            else:
+                raise ValueError(f"Format file tidak didukung: {ext}")
+
+            return {
+                "file_name": filename,
+                "total_rows": len(records),
+                "columns": columns,
+                "preview_data": records
+            }
+        except Exception as e:
+            logger.error(f"Gagal membaca preview Excel dari bytes ({filename}): {e}")
+            raise ValueError(f"Gagal membaca berkas Excel ({filename}): {str(e)}")
 
     @staticmethod
     def get_columns_and_preview(file_path: Path, max_rows: int = 500) -> Dict[str, Any]:
