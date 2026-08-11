@@ -186,11 +186,12 @@ async def login(credentials: LoginRequest):
 
     token = f"token_{user.uid}_{uuid.uuid4().hex[:12]}"
 
+    # Sinkronisasi user session ke Firestore jika aktif (ultra-safe non-blocking)
     try:
         if firestore_service.is_available:
             firestore_service.db.collection("users").document(user.uid).set(user.dict(), merge=True)
-    except Exception:
-        pass
+    except Exception as err:
+        __import__("logging").getLogger(__name__).warning(f"Gagal sync session ke Firestore saat login: {err}")
     
     return LoginResponse(
         status="success",
