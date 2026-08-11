@@ -47,9 +47,15 @@ class FirestoreService:
                     self._initialized = False
                     return
 
-            self.db = firestore.client()
-            self._initialized = True
-            logger.info("Koneksi Firestore Client berhasil dibuat.")
+            if firebase_admin._apps:
+                try:
+                    self.db = firestore.client()
+                    self._initialized = True
+                    logger.info("Koneksi Firestore Client berhasil dibuat.")
+                except Exception as db_err:
+                    logger.warning(f"Koneksi Firestore client gagal ({db_err}). Menggunakan mode fallback lokal.")
+                    self.db = None
+                    self._initialized = False
         except Exception as e:
             logger.warning(f"Gagal menginisialisasi Firestore ({e}). Mode fallback memori.")
             self.db = None
