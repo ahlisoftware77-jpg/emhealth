@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { FileUploader } from "@/components/ui/FileUploader";
 import { ExcelAPI } from "@/lib/api";
 import {
@@ -206,6 +206,25 @@ export default function ExcelToolsPage() {
   const [editingCell, setEditingCell] = useState<{ fileNum: 1 | 2; rowIndex: number; col: string } | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
 
+  // Column Name Edit State (e.g. { fileNum: 1, colIdx: 0 })
+  const [editingColumn, setEditingColumn] = useState<{ fileNum: 1 | 2; colIdx: number } | null>(null);
+  const [editingColumnValue, setEditingColumnValue] = useState<string>("");
+
+  // Track Unsaved Changes
+  const [hasUnsavedChanges1, setHasUnsavedChanges1] = useState<boolean>(false);
+  const [hasUnsavedChanges2, setHasUnsavedChanges2] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges1 || hasUnsavedChanges2) {
+        e.preventDefault();
+        e.returnValue = "Ada perubahan data yang belum disimpan. Yakin ingin memuat ulang?";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges1, hasUnsavedChanges2]);
+
   // Handler to toggle column sorting
   const handleSortColumn = (fileNum: 1 | 2, col: string) => {
     if (fileNum === 1) {
@@ -256,6 +275,10 @@ export default function ExcelToolsPage() {
       document.body.removeChild(link);
 
       setMessage(`✅ ${res.message || `Perubahan data File ${fileNum} (${targetFile.name}) berhasil disimpan!`}. File Excel hasil perubahan telah diunduh.`);
+      
+      // Reset unsaved changes flag
+      if (fileNum === 1) setHasUnsavedChanges1(false);
+      else setHasUnsavedChanges2(false);
     } catch (err: any) {
       setMessage(`❌ Gagal menyimpan file Excel ${fileNum}: ${err.response?.data?.detail || err.message}`);
     } finally {
@@ -272,6 +295,7 @@ export default function ExcelToolsPage() {
         const updatedRows = [...file1Preview.preview_data];
         updatedRows[realIndex] = { ...updatedRows[realIndex], [col]: newValue };
         setFile1Preview({ ...file1Preview, preview_data: updatedRows });
+        setHasUnsavedChanges1(true);
       }
     } else if (fileNum === 2 && file2Preview) {
       const realIndex = file2Preview.preview_data.indexOf(rowObj);
@@ -279,9 +303,70 @@ export default function ExcelToolsPage() {
         const updatedRows = [...file2Preview.preview_data];
         updatedRows[realIndex] = { ...updatedRows[realIndex], [col]: newValue };
         setFile2Preview({ ...file2Preview, preview_data: updatedRows });
+        setHasUnsavedChanges2(true);
       }
     }
     setEditingCell(null);
+  };
+
+  // Handler to rename a column header
+  const handleColumnRenameSave = (fileNum: 1 | 2, oldColName: string, newColName: string) => {
+    const trimmedNewColName = newColName.trim();
+    if (!trimmedNewColName || trimmedNewColName === oldColName) {
+      setEditingColumn(null);
+      return;
+    }
+
+    if (fileNum === 1 && file1Preview) {
+      if (file1Preview.columns.includes(trimmedNewColName)) {
+        setMessage(`Kolom "${trimmedNewColName}" sudah ada di File 1!`);
+        return;
+      }
+      
+      // Update columns array
+      const newColumns = file1Preview.columns.map(c => c === oldColName ? trimmedNewColName : c);
+      
+      // Update keys in preview_data
+      const newPreviewData = file1Preview.preview_data.map(row => {
+        const newRow = { ...row };
+        newRow[trimmedNewColName] = newRow[oldColName];
+        delete newRow[oldColName];
+        return newRow;
+      });
+      
+      setFile1Preview({ ...file1Preview, columns: newColumns, preview_data: newPreviewData });
+      
+      // Update keyCols if it was selected
+      if (selectedKeyCols1Set.has(oldColName)) {
+        const newKeyCols = Array.from(selectedKeyCols1Set).map(c => c === oldColName ? trimmedNewColName : c).join(", ");
+        setKeyCols1(newKeyCols);
+      }
+      
+      setHasUnsavedChanges1(true);
+    } else if (fileNum === 2 && file2Preview) {
+      if (file2Preview.columns.includes(trimmedNewColName)) {
+        setMessage(`Kolom "${trimmedNewColName}" sudah ada di File 2!`);
+        return;
+      }
+      
+      const newColumns = file2Preview.columns.map(c => c === oldColName ? trimmedNewColName : c);
+      const newPreviewData = file2Preview.preview_data.map(row => {
+        const newRow = { ...row };
+        newRow[trimmedNewColName] = newRow[oldColName];
+        delete newRow[oldColName];
+        return newRow;
+      });
+      
+      setFile2Preview({ ...file2Preview, columns: newColumns, preview_data: newPreviewData });
+      
+      if (selectedKeyCols2Set.has(oldColName)) {
+        const newKeyCols = Array.from(selectedKeyCols2Set).map(c => c === oldColName ? trimmedNewColName : c).join(", ");
+        setKeyCols2(newKeyCols);
+      }
+      
+      setHasUnsavedChanges2(true);
+    }
+    setEditingColumn(null);
   };
 
   // Handler to add a new empty row with AUTO-SAVE
@@ -350,9 +435,69 @@ export default function ExcelToolsPage() {
 
   // State for Dedup
   const [dedupFile, setDedupFile] = useState<File | null>(null);
+  const [dedupFilePreview, setDedupFilePreview] = useState<any>(null);
+  const [loadingDedupPreview, setLoadingDedupPreview] = useState<boolean>(false);
   const [dedupCols, setDedupCols] = useState<string>("Email");
   const [keepStrategy, setKeepStrategy] = useState<"first" | "last" | "unique">("first");
   const [dedupJobResult, setDedupJobResult] = useState<any>(null);
+
+  // Client-side dedup calculation for preview
+  const processedDedupData = useMemo(() => {
+    if (!dedupFilePreview?.preview_data) return { rows: [], stats: { total: 0, removed: 0, kept: 0 } };
+    
+    const targetCols = dedupCols.split(",").map(s => s.trim()).filter(Boolean);
+    const rows = dedupFilePreview.preview_data;
+    
+    if (targetCols.length === 0) {
+      return {
+        rows: rows.map((r: any) => ({ ...r, __dedup_status: "kept" })),
+        stats: { total: rows.length, removed: 0, kept: rows.length }
+      };
+    }
+
+    // Find duplicates based on target columns
+    const grouped = new Map<string, number[]>();
+    
+    rows.forEach((row: any, idx: number) => {
+      const key = targetCols.map(col => String(row[col] ?? "").toLowerCase().trim()).join("|");
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)!.push(idx);
+    });
+
+    const statusMap = new Array(rows.length).fill("removed");
+
+    grouped.forEach((indices) => {
+      if (indices.length === 1) {
+        statusMap[indices[0]] = "kept";
+      } else {
+        if (keepStrategy === "first") {
+          statusMap[indices[0]] = "kept";
+        } else if (keepStrategy === "last") {
+          statusMap[indices[indices.length - 1]] = "kept";
+        } else if (keepStrategy === "unique") {
+          // Keep nothing for this group
+        }
+      }
+    });
+
+    const processedRows = rows.map((r: any, idx: number) => ({
+      ...r,
+      __dedup_status: statusMap[idx]
+    }));
+
+    const removedCount = statusMap.filter(s => s === "removed").length;
+
+    return {
+      rows: processedRows,
+      stats: {
+        total: rows.length,
+        removed: removedCount,
+        kept: rows.length - removedCount
+      }
+    };
+  }, [dedupFilePreview, dedupCols, keepStrategy]);
 
   // State for Merge
   const [mergeFiles, setMergeFiles] = useState<File[]>([]);
@@ -417,6 +562,26 @@ export default function ExcelToolsPage() {
       setMessage(`Gagal membaca pratinjau File 2: ${err.response?.data?.detail || err.message}`);
     } finally {
       setLoadingPreview2(false);
+    }
+  };
+
+  const handleDedupFileSelect = async (f: File | null) => {
+    setDedupFile(f);
+    if (!f) {
+      setDedupFilePreview(null);
+      return;
+    }
+    setLoadingDedupPreview(true);
+    try {
+      const res = await ExcelAPI.inspectFile(f);
+      if (res?.data) {
+        setDedupFilePreview(res.data);
+      }
+    } catch (err: any) {
+      console.error("Gagal memuat pratinjau Dedup File", err);
+      setMessage(`Gagal membaca pratinjau Dedup File: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setLoadingDedupPreview(false);
     }
   };
 
@@ -1265,11 +1430,37 @@ export default function ExcelToolsPage() {
                                 <th className="p-2.5 border-r border-emerald-500/30 font-mono text-[10px] bg-emerald-950 text-emerald-400">#</th>
                                 {visibleCols1.map((col, idx) => {
                                   const isSorted = sortCol1 === col;
+                                  const isEditingThisColumn = editingColumn?.fileNum === 1 && editingColumn?.colIdx === idx;
+                                  
+                                  if (isEditingThisColumn) {
+                                    return (
+                                      <th key={idx} className="p-1 border-r border-emerald-500/30 bg-emerald-900">
+                                        <input
+                                          type="text"
+                                          autoFocus
+                                          value={editingColumnValue}
+                                          onChange={(e) => setEditingColumnValue(e.target.value)}
+                                          onBlur={() => handleColumnRenameSave(1, col, editingColumnValue)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") handleColumnRenameSave(1, col, editingColumnValue);
+                                            if (e.key === "Escape") setEditingColumn(null);
+                                          }}
+                                          className="w-full px-2 py-1 text-xs bg-slate-900 text-emerald-300 rounded border border-emerald-400 focus:outline-none font-mono"
+                                        />
+                                      </th>
+                                    );
+                                  }
+
                                   return (
                                     <th
                                       key={idx}
+                                      onDoubleClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingColumn({ fileNum: 1, colIdx: idx });
+                                        setEditingColumnValue(col);
+                                      }}
                                       onClick={() => handleSortColumn(1, col)}
-                                      title="Klik untuk mengurutkan kolom"
+                                      title="Klik 2x untuk ubah nama kolom | Klik 1x untuk urutkan"
                                       className={`p-2.5 border-r border-emerald-500/30 truncate min-w-[140px] max-w-[220px] tracking-wide text-xs cursor-pointer hover:bg-emerald-900/60 select-none transition-all ${isSorted ? "bg-emerald-900/90 text-amber-300" : ""
                                         }`}
                                     >
@@ -1424,24 +1615,50 @@ export default function ExcelToolsPage() {
                               <th className="p-2.5 border-r border-sky-500/30 font-mono text-[10px] bg-sky-950 text-sky-400">#</th>
                               {visibleCols2.map((col, idx) => {
                                 const isSorted = sortCol2 === col;
-                                return (
-                                  <th
-                                    key={idx}
-                                    onClick={() => handleSortColumn(2, col)}
-                                    title="Klik untuk mengurutkan kolom"
-                                    className={`p-2.5 border-r border-sky-500/30 truncate min-w-[140px] max-w-[220px] tracking-wide text-xs cursor-pointer hover:bg-sky-900/60 select-none transition-all ${isSorted ? "bg-sky-900/90 text-amber-300" : ""
-                                      }`}
-                                  >
-                                    <div className="flex items-center justify-between gap-1">
-                                      <span>{col}</span>
-                                      {isSorted ? (
-                                        sortDir2 === "asc" ? <SortAsc className="w-3.5 h-3.5 text-amber-300 shrink-0" /> : <SortDesc className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                                      ) : (
-                                        <ArrowUpDown className="w-3 h-3 text-sky-500/40 opacity-60 shrink-0" />
-                                      )}
-                                    </div>
-                                  </th>
-                                );
+                                  const isEditingThisColumn = editingColumn?.fileNum === 2 && editingColumn?.colIdx === idx;
+                                  
+                                  if (isEditingThisColumn) {
+                                    return (
+                                      <th key={idx} className="p-1 border-r border-sky-500/30 bg-sky-900">
+                                        <input
+                                          type="text"
+                                          autoFocus
+                                          value={editingColumnValue}
+                                          onChange={(e) => setEditingColumnValue(e.target.value)}
+                                          onBlur={() => handleColumnRenameSave(2, col, editingColumnValue)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") handleColumnRenameSave(2, col, editingColumnValue);
+                                            if (e.key === "Escape") setEditingColumn(null);
+                                          }}
+                                          className="w-full px-2 py-1 text-xs bg-slate-900 text-sky-300 rounded border border-sky-400 focus:outline-none font-mono"
+                                        />
+                                      </th>
+                                    );
+                                  }
+
+                                  return (
+                                    <th
+                                      key={idx}
+                                      onDoubleClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingColumn({ fileNum: 2, colIdx: idx });
+                                        setEditingColumnValue(col);
+                                      }}
+                                      onClick={() => handleSortColumn(2, col)}
+                                      title="Klik 2x untuk ubah nama kolom | Klik 1x untuk urutkan"
+                                      className={`p-2.5 border-r border-sky-500/30 truncate min-w-[140px] max-w-[220px] tracking-wide text-xs cursor-pointer hover:bg-sky-900/60 select-none transition-all ${isSorted ? "bg-sky-900/90 text-amber-300" : ""
+                                        }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span>{col}</span>
+                                        {isSorted ? (
+                                          sortDir2 === "asc" ? <SortAsc className="w-3.5 h-3.5 text-amber-300 shrink-0" /> : <SortDesc className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                                        ) : (
+                                          <ArrowUpDown className="w-3 h-3 text-sky-500/40 opacity-60 shrink-0" />
+                                        )}
+                                      </div>
+                                    </th>
+                                  );
                               })}
                             </tr>
                           </thead>
@@ -1657,7 +1874,7 @@ export default function ExcelToolsPage() {
               <FileUploader
                 label="Upload file Excel/CSV untuk dibersihkan"
                 multiple={false}
-                onFilesSelected={(files) => setDedupFile(files[0] || null)}
+                onFilesSelected={(files) => handleDedupFileSelect(files[0] || null)}
               />
 
               <div>
@@ -1688,13 +1905,95 @@ export default function ExcelToolsPage() {
 
               <button
                 onClick={handleDedup}
-                disabled={isProcessing}
-                className="w-full py-2.5 rounded-md bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow"
+                disabled={isProcessing || loadingDedupPreview || !dedupFilePreview}
+                className="w-full py-2.5 rounded-md bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow disabled:opacity-50"
               >
                 <span>{isProcessing ? "Memproses Hapus Duplikat..." : "Jalankan Pembersihan Duplikat"}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Dedup Preview Table */}
+            {loadingDedupPreview ? (
+              <div className="max-w-6xl mx-auto mt-6 p-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3 bg-card border border-border rounded-xl">
+                <RefreshCw className="w-7 h-7 animate-spin text-emerald-400" />
+                <span className="font-semibold text-emerald-500">Membaca file untuk pratinjau...</span>
+              </div>
+            ) : dedupFilePreview ? (
+              <div className="max-w-6xl mx-auto mt-6 bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                      Pratinjau Hapus Duplikat: {dedupFile?.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Menampilkan sampel data. Baris berwarna merah muda dengan coretan akan <b>dihapus</b>.
+                    </p>
+                  </div>
+                  <div className="flex gap-4 text-xs font-mono">
+                    <div className="flex flex-col text-right">
+                      <span className="text-muted-foreground">Total Baris:</span>
+                      <span className="font-bold">{processedDedupData.stats.total}</span>
+                    </div>
+                    <div className="flex flex-col text-right">
+                      <span className="text-rose-500">Akan Dihapus:</span>
+                      <span className="font-bold text-rose-500">{processedDedupData.stats.removed}</span>
+                    </div>
+                    <div className="flex flex-col text-right">
+                      <span className="text-emerald-500">Dipertahankan:</span>
+                      <span className="font-bold text-emerald-500">{processedDedupData.stats.kept}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto max-h-[500px]">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-muted/50 sticky top-0 border-b border-border text-foreground font-semibold shadow-sm z-10">
+                      <tr>
+                        <th className="p-2 border-r border-border text-center w-12">#</th>
+                        <th className="p-2 border-r border-border text-center w-24">Status</th>
+                        {dedupFilePreview.columns.map((col: string, idx: number) => (
+                          <th key={idx} className="p-2 border-r border-border truncate max-w-[200px]">
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border font-mono text-[11px]">
+                      {processedDedupData.rows.map((row: any, rIdx: number) => {
+                        const isRemoved = row.__dedup_status === "removed";
+                        return (
+                          <tr 
+                            key={rIdx} 
+                            className={`transition-colors ${
+                              isRemoved 
+                                ? "bg-rose-500/10 text-muted-foreground line-through decoration-rose-500/50" 
+                                : "hover:bg-muted/30"
+                            }`}
+                          >
+                            <td className="p-2 border-r border-border text-center text-muted-foreground/70">{rIdx + 1}</td>
+                            <td className="p-2 border-r border-border text-center">
+                              {isRemoved ? (
+                                <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[9px] uppercase tracking-wider">Hapus</span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-500 font-bold text-[9px] uppercase tracking-wider">Simpan</span>
+                              )}
+                            </td>
+                            {dedupFilePreview.columns.map((col: string, cIdx: number) => (
+                              <td key={cIdx} className={`p-2 border-r border-border truncate max-w-[200px] ${isRemoved ? "opacity-60" : ""}`}>
+                                {String(row[col] ?? "") || <span className="opacity-30 italic">Kosong</span>}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+            </>
           )}
 
           {/* TAB 3: MERGE */}
