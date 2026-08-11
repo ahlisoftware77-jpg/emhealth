@@ -8,6 +8,7 @@ import { AIAssistantBox } from "@/components/ui/AIAssistantBox";
 
 export default function ImageCompressPage() {
   const [images, setImages] = useState<File[]>([]);
+  const [uploadMode, setUploadMode] = useState<"file" | "folder">("file");
   const [quality, setQuality] = useState<number>(80);
   const [targetFormat, setTargetFormat] = useState<string>("WEBP");
   const [maxWidth, setMaxWidth] = useState<string>("");
@@ -79,13 +80,43 @@ export default function ImageCompressPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upload Box */}
         <div className="lg:col-span-2 p-6 rounded-xl border border-border bg-card space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">Upload Berkas Gambar Massal</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-foreground">Sumber Gambar</h2>
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
+              <button
+                onClick={() => setUploadMode("file")}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  uploadMode === "file" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Pilih File Satuan
+              </button>
+              <button
+                onClick={() => setUploadMode("folder")}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  uploadMode === "folder" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Pilih Seluruh Folder
+              </button>
+            </div>
+          </div>
+          
           <FileUploader
             accept={{ "image/*": [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".heic"] }}
-            label="Tarik & lepas berkas gambar di sini (JPG, PNG, WEBP, BMP, HEIC)"
+            label={uploadMode === "folder" ? "Klik di sini untuk memilih Folder (semua gambar di dalamnya akan dibaca)" : "Tarik & lepas berkas gambar di sini atau klik untuk memilih file"}
             multiple={true}
+            allowDirectory={uploadMode === "folder"}
             onFilesSelected={(files) => setImages(files)}
           />
+
+          <div className="text-[11px] text-muted-foreground bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20 mt-4 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+            <p>
+              <strong className="text-emerald-400 font-semibold block mb-0.5">Mengenai Folder Output:</strong> 
+              Demi keamanan browser, aplikasi Cloud tidak dapat langsung menulis file ke dalam partisi lokal Anda (seperti D:\). Oleh karena itu, hasil gambar yang telah di-compress akan otomatis dikemas menjadi satu file <strong>.ZIP</strong>. Anda akan dapat mengunduhnya dan memilih lokasi penyimpanan (Folder Output) melalui dialog "Save As" bawaan komputer Anda.
+            </p>
+          </div>
         </div>
 
         {/* Compression Controls */}

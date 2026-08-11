@@ -10,6 +10,7 @@ interface FileUploaderProps {
   maxFiles?: number;
   label?: string;
   sublabel?: string;
+  allowDirectory?: boolean;
   onFilesSelected: (files: File[]) => void;
 }
 
@@ -19,6 +20,7 @@ export function FileUploader({
   maxFiles = 50,
   label = "Tarik & lepas file di sini, atau klik untuk memilih",
   sublabel = "Mendukung format .xlsx, .xls, .csv, atau file gambar",
+  allowDirectory = false,
   onFilesSelected,
 }: FileUploaderProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -57,7 +59,10 @@ export function FileUploader({
             : "border-border hover:border-primary/50 hover:bg-muted/30"
         }`}
       >
-        <input {...getInputProps()} />
+        <input 
+          {...getInputProps()} 
+          {...(allowDirectory ? { webkitdirectory: 'true' } as any : {})}
+        />
         <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3 text-primary">
           <UploadCloud className="w-6 h-6" />
         </div>
