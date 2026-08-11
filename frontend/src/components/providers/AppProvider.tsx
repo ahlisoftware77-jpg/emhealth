@@ -31,21 +31,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // SSE Stream for Realtime Job Progress Updates
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003/api/v1";
-    const eventSource = new EventSource(`${apiUrl}/job-queue/stream/events`);
+    let eventSource: EventSource | null = null;
 
-    eventSource.onmessage = (event) => {
-      try {
-        const jobData = JSON.parse(event.data);
-        if (jobData && jobData.job_id) {
-          updateJob(jobData);
+    try {
+      eventSource = new EventSource(`${apiUrl}/job-queue/stream/events`);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const jobData = JSON.parse(event.data);
+          if (jobData && jobData.job_id) {
+            updateJob(jobData);
+          }
+        } catch (err) {
+          console.error("SSE parse error:", err);
         }
-      } catch (err) {
-        console.error("SSE parse error:", err);
-      }
-    };
+      };
+
+      eventSource.onerror = (err) => {
+        // Close event source silently if server unreachable/CORS fails on invalid URL
+        if (eventSource) {
+          eventSource.close();
+        }
+      };
+    } catch (e) {
+      // Ignore initial connection errors
+    }
 
     return () => {
-      eventSource.close();
+      if (eventSource) {
+        eventSource.close();
+      }
     };
   }, [updateJob]);
 
