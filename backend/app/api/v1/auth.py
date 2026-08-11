@@ -48,8 +48,8 @@ async def register(req: RegisterRequest):
                 )
         except HTTPException:
             raise
-        except Exception:
-            pass
+        except Exception as e:
+            __import__("logging").getLogger(__name__).warning(f"Warning saat cek email terdaftar di Firestore: {e}")
 
     # Akun Super Admin langsung disetujui (Approved)
     is_super_admin = (email == "triyadi72@gmail.com")
