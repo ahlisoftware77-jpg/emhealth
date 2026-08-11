@@ -75,6 +75,9 @@ def save_settings_to_env(new_settings: dict):
         for k, v in env_dict.items():
             f.write(f"{k}={v}\n")
 
-# Ensure directories exist
+# Ensure directories exist (use /tmp on Vercel Serverless environment if local is read-only)
 for folder in [settings.UPLOAD_DIR, settings.OUTPUT_DIR, settings.TEMP_DIR, settings.CACHE_DIR]:
-    folder.mkdir(parents=True, exist_ok=True)
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass

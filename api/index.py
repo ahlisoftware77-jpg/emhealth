@@ -2,9 +2,12 @@ import sys
 import os
 from pathlib import Path
 
-# Fix sys.path for Vercel Python runtime
-current_dir = Path(__file__).resolve().parent
-backend_dir = current_dir / "backend"
+# Add project root and backend folder to sys.path for Vercel Serverless
+root_dir = Path(__file__).resolve().parent
+backend_dir = root_dir / "backend"
+
+sys.path.insert(0, str(root_dir))
 sys.path.insert(0, str(backend_dir))
 
 from backend.main import app
+
