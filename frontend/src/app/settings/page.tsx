@@ -453,6 +453,9 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* User Approval Management Card (Super Admin / Admin Only) */}
+        <UserManagementSection />
+
         {/* Cloudinary Credentials Card */}
         <div className="p-6 rounded-xl border border-border bg-card space-y-4">
           <h2 className="text-sm font-semibold text-foreground">Kredensial API Cloudinary</h2>
@@ -503,6 +506,134 @@ export default function SettingsPage() {
           <Save className="w-4 h-4" />
           <span>{isSaving ? "Menyimpan..." : "Simpan Pengaturan"}</span>
         </button>
+      </div>
+    </div>
+  );
+}
+
+function UserManagementSection() {
+  const { data: usersData, refetch: refetchUsers, isLoading } = useQuery({
+    queryKey: ["allUsersList"],
+    queryFn: SettingsAPI ? async () => {
+      const res = await (await import("@/lib/api")).AuthAPI.listUsers();
+      return res;
+    } : async () => ({ users: [] }),
+  });
+
+  const [processingUid, setProcessingUid] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
+
+  const handleApproveReject = async (uid: string, action: "approve" | "reject", role?: string) => {
+    setProcessingUid(uid);
+    setActionMsg(null);
+    try {
+      const res = await (await import("@/lib/api")).AuthAPI.approveUser(uid, action, role);
+      setActionMsg(res.message);
+      refetchUsers();
+    } catch (err: any) {
+      alert("Gagal memproses pendaftaran user: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setProcessingUid(null);
+    }
+  };
+
+  const users = usersData?.users || [];
+  const pendingUsers = users.filter((u: any) => u.status === "Pending");
+  const approvedUsers = users.filter((u: any) => u.status !== "Pending");
+
+  return (
+    <div className="p-6 rounded-xl border border-border bg-card space-y-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-purple-400" />
+          Konfirmasi Pendaftaran & Manajemen User
+        </h2>
+        {pendingUsers.length > 0 && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 animate-pulse">
+            {pendingUsers.length} Antrean Pendaftaran
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Setujui (Approve) pendaftaran akun baru sebelum pengguna tersebut dapat masuk ke dalam sistem.
+      </p>
+
+      {actionMsg && (
+        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+          {actionMsg}
+        </div>
+      )}
+
+      {/* Pending Approval Section */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">Pendaftaran Menunggu Konfirmasi ({pendingUsers.length})</h3>
+        {isLoading ? (
+          <div className="py-4 text-center text-xs text-muted-foreground">Memuat antrean...</div>
+        ) : pendingUsers.length === 0 ? (
+          <div className="p-3 rounded-lg border border-dashed border-border text-xs text-muted-foreground text-center">
+            Tidak ada pendaftaran baru yang menunggu konfirmasi.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pendingUsers.map((u: any) => (
+              <div key={u.uid} className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 flex items-center justify-between gap-4">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="font-semibold text-xs text-foreground truncate">{u.name}</div>
+                  <div className="text-[11px] text-muted-foreground font-mono truncate">{u.email}</div>
+                  <div className="text-[10px] text-amber-400 font-mono">Status: Menunggu Persetujuan</div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    disabled={processingUid === u.uid}
+                    onClick={() => handleApproveReject(u.uid, "approve", "User")}
+                    className="px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all flex items-center gap-1 shadow-sm"
+                  >
+                    Setujui (Approve)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processingUid === u.uid}
+                    onClick={() => handleApproveReject(u.uid, "reject")}
+                    className="px-3 py-1.5 rounded-md bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 font-semibold text-xs transition-all border border-rose-500/30"
+                  >
+                    Tolak
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Approved / Existing Users Section */}
+      <div className="space-y-2 pt-3 border-t border-border">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Daftar Pengguna Terverifikasi ({approvedUsers.length})</h3>
+        {approvedUsers.length > 0 && (
+          <div className="divide-y divide-border/60 max-h-48 overflow-y-auto pr-1">
+            {approvedUsers.map((u: any) => (
+              <div key={u.uid} className="py-2 flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-semibold text-foreground">{u.name}</span>
+                  <span className="text-[11px] text-muted-foreground font-mono ml-2">({u.email})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
+                    u.role === "Super Admin" ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {u.role || "User"}
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                    u.status === "Approved" ? "text-emerald-400" : "text-rose-400"
+                  }`}>
+                    {u.status || "Approved"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

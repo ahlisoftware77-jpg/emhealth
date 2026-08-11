@@ -26,6 +26,18 @@ export const AuthAPI = {
     const res = await apiClient.post("/auth/login", { email, password });
     return res.data;
   },
+  register: async (name: string, email: string, password: string) => {
+    const res = await apiClient.post("/auth/register", { name, email, password });
+    return res.data;
+  },
+  listUsers: async () => {
+    const res = await apiClient.get("/auth/users");
+    return res.data;
+  },
+  approveUser: async (uid: string, action: "approve" | "reject", role?: string) => {
+    const res = await apiClient.post("/auth/approve-user", { uid, action, role });
+    return res.data;
+  },
   me: async () => {
     const res = await apiClient.get("/auth/me");
     return res.data;
