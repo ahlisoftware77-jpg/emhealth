@@ -1246,8 +1246,9 @@ export default function ExcelToolsPage() {
                     </div>
                   ) : file1Preview && file1Preview.columns.length > 0 ? (
                     (() => {
-                      const visibleCols1 = showOnlyKeyColumns && selectedKeyCols1Set.size > 0
-                        ? file1Preview.columns.filter((c) => selectedKeyCols1Set.has(c))
+                      const normalizedKeyCols1 = new Set(Array.from(selectedKeyCols1Set).map(s => s.toLowerCase()));
+                      const visibleCols1 = showOnlyKeyColumns && normalizedKeyCols1.size > 0
+                        ? file1Preview.columns.filter((c) => normalizedKeyCols1.has(c.toLowerCase()))
                         : file1Preview.columns;
 
                       return (
@@ -1404,8 +1405,9 @@ export default function ExcelToolsPage() {
                     </div>
                   ) : file2Preview && file2Preview.columns.length > 0 ? (
                     (() => {
-                      const visibleCols2 = showOnlyKeyColumns && selectedKeyCols2Set.size > 0
-                        ? file2Preview.columns.filter((c) => selectedKeyCols2Set.has(c))
+                      const normalizedKeyCols2 = new Set(Array.from(selectedKeyCols2Set).map(s => s.toLowerCase()));
+                      const visibleCols2 = showOnlyKeyColumns && normalizedKeyCols2.size > 0
+                        ? file2Preview.columns.filter((c) => normalizedKeyCols2.has(c.toLowerCase()))
                         : file2Preview.columns;
 
                       return (
