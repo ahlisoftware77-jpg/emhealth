@@ -7,47 +7,56 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+def _get_or_init_firebase_app():
+    """Inisialisasi Firebase Admin SDK jika belum ada.
+    Gunakan app yang sudah ada jika sudah diinisialisasi — hindari konflik."""
+    try:
+        # Jika sudah ada app default, langsung pakai
+        if firebase_admin._apps:
+            return firebase_admin.get_app()
+        
+        import json
+        raw_json = (settings.FIREBASE_SERVICE_ACCOUNT_JSON or "").strip()
+        
+        if raw_json:
+            try:
+                cred_dict = json.loads(raw_json)
+                cred = credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred)
+                logger.info("Firebase Admin Initialized dari raw Service Account JSON.")
+                return firebase_admin.get_app()
+            except Exception as json_err:
+                logger.warning(f"Gagal parse Raw Service Account JSON: {json_err}")
+        
+        cred_path = settings.FIREBASE_CREDENTIALS_PATH
+        if cred_path and os.path.exists(cred_path):
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+            logger.info("Firebase Admin Initialized dari file JSON.")
+            return firebase_admin.get_app()
+        
+        if settings.FIREBASE_PROJECT_ID:
+            firebase_admin.initialize_app(options={'projectId': settings.FIREBASE_PROJECT_ID})
+            logger.info(f"Firebase Admin Initialized dengan Project ID: {settings.FIREBASE_PROJECT_ID}")
+            return firebase_admin.get_app()
+        
+        logger.info("Service Account / Project ID tidak ditemukan — Firebase tidak diinisialisasi.")
+        return None
+    except Exception as e:
+        logger.warning(f"Firebase Admin SDK init error: {e}")
+        return None
+
+
 class FirestoreService:
     def __init__(self):
         self.db: Optional[Any] = None
         self._initialized = False
-        self._init_firebase()
+        self._init_firestore()
 
-    def _init_firebase(self):
+    def _init_firestore(self):
         try:
-            # If app already exists, delete it to allow re-initialization with new credentials
-            if firebase_admin._apps:
-                for app_name in list(firebase_admin._apps.keys()):
-                    firebase_admin.delete_app(firebase_admin.get_app(app_name))
-
-            import json
-            raw_json = (settings.FIREBASE_SERVICE_ACCOUNT_JSON or "").strip()
-            
-            if raw_json:
-                try:
-                    cred_dict = json.loads(raw_json)
-                    cred = credentials.Certificate(cred_dict)
-                    firebase_admin.initialize_app(cred)
-                    logger.info("Firebase Admin Initialized dari raw Service Account JSON.")
-                except Exception as json_err:
-                    logger.warning(f"Gagal parse Raw Service Account JSON: {json_err}")
-            
-            if not firebase_admin._apps:
-                cred_path = settings.FIREBASE_CREDENTIALS_PATH
-                if cred_path and os.path.exists(cred_path):
-                    cred = credentials.Certificate(cred_path)
-                    firebase_admin.initialize_app(cred)
-                    logger.info("Firebase Admin Initialized dari file JSON.")
-                elif settings.FIREBASE_PROJECT_ID:
-                    firebase_admin.initialize_app(options={'projectId': settings.FIREBASE_PROJECT_ID})
-                    logger.info(f"Firebase Admin Initialized dengan Project ID: {settings.FIREBASE_PROJECT_ID}")
-                else:
-                    logger.info("Service Account / Project ID tidak ditemukan.")
-                    self.db = None
-                    self._initialized = False
-                    return
-
-            if firebase_admin._apps:
+            app = _get_or_init_firebase_app()
+            if app is not None:
                 try:
                     self.db = firestore.client()
                     self._initialized = True

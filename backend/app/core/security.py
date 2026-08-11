@@ -13,11 +13,16 @@ firebase_initialized = False
 try:
     import firebase_admin
     from firebase_admin import auth, credentials
-    if os.path.exists(settings.FIREBASE_CREDENTIALS_PATH):
+    
+    # Jika app sudah ada (diinisialisasi oleh firestore.py), langsung pakai
+    if firebase_admin._apps:
+        firebase_initialized = True
+        logger.info("Firebase Admin SDK sudah aktif (diinisialisasi sebelumnya).")
+    elif os.path.exists(settings.FIREBASE_CREDENTIALS_PATH):
         cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
         firebase_admin.initialize_app(cred)
         firebase_initialized = True
-        logger.info("Firebase Admin SDK initialized successfully.")
+        logger.info("Firebase Admin SDK initialized dari security.py.")
     else:
         logger.info("Firebase credentials file not found. Running with mock/local auth token validator.")
 except Exception as e:
