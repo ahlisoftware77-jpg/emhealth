@@ -1869,6 +1869,7 @@ export default function ExcelToolsPage() {
 
           {/* TAB 2: DEDUP */}
           {activeTab === "dedup" && (
+            <>
             <div className="max-w-2xl mx-auto p-6 rounded-xl border border-border bg-card space-y-5 shadow-sm">
               <h2 className="text-sm font-semibold text-foreground">Remove Duplicate Baris Excel</h2>
               <FileUploader
