@@ -59,6 +59,23 @@ async def root():
         "docs_url": "/docs"
     }
 
+@app.get("/api/v1/health")
+async def health_check():
+    """Endpoint diagnostik publik - cek apakah backend berjalan dan semua paket tersedia."""
+    import sys
+    import platform
+    checks = {"python": sys.version, "platform": platform.system()}
+    
+    # Cek paket kritis
+    for pkg in ["pandas", "openpyxl", "fastapi", "firebase_admin"]:
+        try:
+            mod = __import__(pkg)
+            checks[pkg] = getattr(mod, "__version__", "ok")
+        except ImportError as e:
+            checks[pkg] = f"MISSING: {e}"
+    
+    return {"status": "ok", "runtime": checks}
+
 if __name__ == "__main__":
     import os
     port = int(os.getenv("PORT", 8003))
