@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { MCUBlastAPI } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { MCUBlastAPI, ExcelAPI } from "@/lib/api";
 import { FileUploader } from "@/components/ui/FileUploader";
 import { 
   Mail, 
@@ -28,6 +28,30 @@ export default function MCUEmailBlastPage() {
   // State 1: Uploads
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [excelPreview, setExcelPreview] = useState<any>(null);
+  const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!excelFile) {
+      setExcelPreview(null);
+      return;
+    }
+    const fetchPreview = async () => {
+      setLoadingPreview(true);
+      try {
+        const res = await ExcelAPI.inspectFile(excelFile);
+        if (res?.data) {
+          setExcelPreview(res.data);
+        }
+      } catch (err: any) {
+        console.error("Gagal load preview Excel:", err);
+      } finally {
+        setLoadingPreview(false);
+      }
+    };
+    fetchPreview();
+  }, [excelFile]);
+
 
   // State 2: Sender Config
   const [mode, setMode] = useState<"GMAIL" | "CUSTOM_DOMAIN">("GMAIL");
@@ -212,7 +236,8 @@ export default function MCUEmailBlastPage() {
 
       {/* TAB 1: UPLOAD FILES */}
       {activeTab === "upload" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Card Excel Upload */}
           <div className="bg-card border border-border rounded-xl p-5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
@@ -273,6 +298,58 @@ export default function MCUEmailBlastPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Excel Data Preview Section */}
+        {(excelPreview || loadingPreview) && (
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-2">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              Preview Data Excel
+              {excelPreview && (
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-mono">
+                  {excelPreview.total_rows} Baris
+                </span>
+              )}
+            </h2>
+            
+            {loadingPreview ? (
+              <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-3 bg-muted/20 rounded-lg border border-border">
+                <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
+                <span>Membaca data Excel...</span>
+              </div>
+            ) : excelPreview && excelPreview.columns.length > 0 ? (
+              <div className="overflow-x-auto overflow-y-auto max-h-[350px] border border-border rounded-md">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-muted/70 sticky top-0 border-b border-border text-muted-foreground font-semibold shadow-sm">
+                    <tr>
+                      <th className="p-2 border-r border-border text-center w-10">#</th>
+                      {excelPreview.columns.map((col: string, idx: number) => (
+                        <th key={idx} className="p-2 border-r border-border min-w-[120px] max-w-[200px] truncate">{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border font-mono text-[11px]">
+                    {excelPreview.preview_data.map((row: any, rIdx: number) => (
+                      <tr key={rIdx} className="hover:bg-muted/30 transition-all">
+                        <td className="p-1.5 border-r border-border text-muted-foreground text-center">{rIdx + 1}</td>
+                        {excelPreview.columns.map((col: string, cIdx: number) => (
+                          <td key={cIdx} className="p-1.5 border-r border-border truncate max-w-[200px] text-foreground">
+                            {String(row[col] ?? "")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg border border-border">
+                Tidak ada data yang bisa ditampilkan.
+              </div>
+            )}
+          </div>
+        )}
         </div>
       )}
 
