@@ -27,7 +27,7 @@ async def get_system_settings(user: Dict[str, Any] = Depends(get_current_user)):
             "primary_storage_engine": active_config.get("PRIMARY_STORAGE_ENGINE", settings.PRIMARY_STORAGE_ENGINE),
             "tesseract_cmd": active_config.get("TESSERACT_CMD", settings.TESSERACT_CMD),
             "cloudinary_cloud_name": active_config.get("CLOUDINARY_CLOUD_NAME", settings.CLOUDINARY_CLOUD_NAME),
-            "cloudinary_api_key": active_config.get("CLOUDINARY_API_KEY", settings.CLOUDINARY_API_KEY),
+            "cloudinary_upload_preset": active_config.get("CLOUDINARY_UPLOAD_PRESET", settings.CLOUDINARY_UPLOAD_PRESET),
             "openai_api_key": active_config.get("OPENAI_API_KEY", settings.OPENAI_API_KEY),
             "gemini_api_key": active_config.get("GEMINI_API_KEY", settings.GEMINI_API_KEY),
             "deepseek_api_key": active_config.get("DEEPSEEK_API_KEY", settings.DEEPSEEK_API_KEY),
@@ -57,10 +57,8 @@ async def update_system_settings(
         settings.TESSERACT_CMD = req.tesseract_cmd
     if req.cloudinary_cloud_name:
         settings.CLOUDINARY_CLOUD_NAME = req.cloudinary_cloud_name
-    if req.cloudinary_api_key:
-        settings.CLOUDINARY_API_KEY = req.cloudinary_api_key
-    if req.cloudinary_api_secret:
-        settings.CLOUDINARY_API_SECRET = req.cloudinary_api_secret
+    if req.cloudinary_upload_preset is not None:
+        settings.CLOUDINARY_UPLOAD_PRESET = req.cloudinary_upload_preset
     if req.openai_api_key is not None:
         settings.OPENAI_API_KEY = req.openai_api_key
     if req.gemini_api_key is not None:
@@ -90,8 +88,7 @@ async def update_system_settings(
         "PRIMARY_STORAGE_ENGINE": settings.PRIMARY_STORAGE_ENGINE,
         "TESSERACT_CMD": settings.TESSERACT_CMD,
         "CLOUDINARY_CLOUD_NAME": settings.CLOUDINARY_CLOUD_NAME,
-        "CLOUDINARY_API_KEY": settings.CLOUDINARY_API_KEY,
-        "CLOUDINARY_API_SECRET": settings.CLOUDINARY_API_SECRET,
+        "CLOUDINARY_UPLOAD_PRESET": settings.CLOUDINARY_UPLOAD_PRESET,
         "OPENAI_API_KEY": settings.OPENAI_API_KEY,
         "GEMINI_API_KEY": settings.GEMINI_API_KEY,
         "DEEPSEEK_API_KEY": settings.DEEPSEEK_API_KEY,

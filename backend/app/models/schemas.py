@@ -84,8 +84,7 @@ class SettingsSchema(BaseModel):
     primary_storage_engine: str = "cloudinary"
     tesseract_cmd: Optional[str] = None
     cloudinary_cloud_name: str = ""
-    cloudinary_api_key: str = ""
-    cloudinary_api_secret: Optional[str] = ""
+    cloudinary_upload_preset: Optional[str] = ""
     openai_api_key: Optional[str] = ""
     gemini_api_key: Optional[str] = ""
     deepseek_api_key: Optional[str] = ""

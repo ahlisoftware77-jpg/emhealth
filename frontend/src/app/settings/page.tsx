@@ -14,8 +14,7 @@ export default function SettingsPage() {
   const [storageEngine, setStorageEngine] = useState<string>("cloudinary");
   const [tesseractCmd, setTesseractCmd] = useState<string>("");
   const [cloudName, setCloudName] = useState<string>("");
-  const [apiKey, setApiKey] = useState<string>("");
-  const [apiSecret, setApiSecret] = useState<string>("");
+  const [uploadPreset, setUploadPreset] = useState<string>("");
 
   // Firebase / Firestore
   const [firebaseProjectId, setFirebaseProjectId] = useState<string>("");
@@ -42,7 +41,7 @@ export default function SettingsPage() {
       setStorageEngine(data.settings.primary_storage_engine || "cloudinary");
       setTesseractCmd(data.settings.tesseract_cmd || "");
       setCloudName(data.settings.cloudinary_cloud_name || "");
-      setApiKey(data.settings.cloudinary_api_key || "");
+      setUploadPreset(data.settings.cloudinary_upload_preset || "");
       setFirebaseProjectId(data.settings.firebase_project_id || "");
       setFirebaseApiKey(data.settings.firebase_api_key || "");
       setFirebaseServiceAccountJson(data.settings.firebase_service_account_json || "");
@@ -64,8 +63,7 @@ export default function SettingsPage() {
         primary_storage_engine: storageEngine,
         tesseract_cmd: tesseractCmd,
         cloudinary_cloud_name: cloudName,
-        cloudinary_api_key: apiKey,
-        cloudinary_api_secret: apiSecret,
+        cloudinary_upload_preset: uploadPreset,
         firebase_project_id: firebaseProjectId,
         firebase_api_key: firebaseApiKey,
         firebase_service_account_json: firebaseServiceAccountJson,
@@ -472,28 +470,15 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">API Key:</label>
-                <input
-                  type="text"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background"
-                  placeholder="API Key"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">API Secret:</label>
-                <input
-                  type="password"
-                  value={apiSecret}
-                  onChange={(e) => setApiSecret(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background"
-                  placeholder="API Secret"
-                />
-              </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Unsigned Upload Preset:</label>
+              <input
+                type="text"
+                value={uploadPreset}
+                onChange={(e) => setUploadPreset(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background"
+                placeholder="Nama Preset Anda (misal: preset_saya_123)"
+              />
             </div>
           </div>
         </div>
