@@ -11,6 +11,19 @@ export const apiClient = axios.create({
   },
 });
 
+export const getDownloadUrl = (path: string) => {
+  if (path.startsWith("http")) return path;
+  if (API_BASE_URL.startsWith("http")) {
+    try {
+      const url = new URL(API_BASE_URL);
+      return `${url.origin}${path}`;
+    } catch {
+      return path;
+    }
+  }
+  return path;
+};
+
 // Interceptor to attach Firebase Bearer token if available
 apiClient.interceptors.request.use(async (config) => {
   if (typeof window !== "undefined") {

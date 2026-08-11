@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
+import { getDownloadUrl } from "@/lib/api";
 import { History as HistoryIcon, Download, CheckCircle2 } from "lucide-react";
 
 export default function HistoryPage() {
@@ -38,7 +39,7 @@ export default function HistoryPage() {
                 </div>
                 {j.result_url && (
                   <a
-                    href={`http://localhost:8003${j.result_url}`}
+                    href={getDownloadUrl(j.result_url)}
                     download
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 self-start sm:self-auto"
                   >

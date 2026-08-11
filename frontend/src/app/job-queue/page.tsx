@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
-import { JobQueueAPI } from "@/lib/api";
+import { JobQueueAPI, getDownloadUrl } from "@/lib/api";
 import { ListTodo, Activity, RefreshCw, RotateCcw, Download, CheckCircle2, XCircle, Clock } from "lucide-react";
 
 export default function JobQueuePage() {
@@ -110,9 +110,9 @@ export default function JobQueuePage() {
 
                         {job.result_url && (
                           <a
-                            href={`http://localhost:8003${job.result_url}`}
+                            href={getDownloadUrl(job.result_url)}
                             download
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-primary text-primary-foreground text-xs font-medium hover:opacity-90"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded text-xs font-semibold transition-all"
                           >
                             <Download className="w-3 h-3" /> Unduh
                           </a>

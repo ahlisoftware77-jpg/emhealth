@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { StatsAPI } from "@/lib/api";
+import { StatsAPI, getDownloadUrl } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 import Link from "next/link";
 import {
@@ -186,7 +186,7 @@ export default function DashboardPage() {
                   </span>
                   {job.result_url && (
                     <a
-                      href={`http://localhost:8003${job.result_url}`}
+                      href={getDownloadUrl(job.result_url)}
                       download
                       className="px-2.5 py-1 rounded bg-primary text-primary-foreground text-[10px] font-medium hover:opacity-90"
                     >
