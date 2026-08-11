@@ -431,8 +431,9 @@ export default function ExcelToolsPage() {
       setKeyCols2(keyCols1);
     }
 
-    // Keep full column preview visible during comparison
+    // Auto-filter preview to show only key columns during comparison
     setShowPreview(true);
+    setShowOnlyKeyColumns(true);
 
     setIsProcessing(true);
     setMessage(null);
