@@ -64,7 +64,7 @@ export const useAppStore = create<AppState>()(
     {
       name: "app_state_storage",
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ user: state.user, theme: state.theme }),
+      partialize: (state) => ({ user: state.user, theme: state.theme, jobs: state.jobs }),
     }
   )
 );
