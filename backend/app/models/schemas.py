@@ -14,6 +14,8 @@ class RemoveDuplicateRequest(BaseModel):
     file_name: str
     target_columns: List[str]
     keep_strategy: str = "first"  # "first", "last", "unique"
+    sort_column: Optional[str] = None
+    sort_order: str = "asc" # "asc", "desc"
     export_format: str = "xlsx"
 
 class MergeRequest(BaseModel):

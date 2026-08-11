@@ -239,10 +239,15 @@ class ExcelService:
         file_path: Path,
         target_columns: List[str],
         keep_strategy: str = "first",
+        sort_column: Optional[str] = None,
+        sort_order: str = "asc",
         output_format: str = "xlsx"
     ) -> Tuple[Path, Dict[str, Any]]:
         df = ExcelService.load_dataframe(file_path)
         initial_rows = len(df)
+
+        if sort_column and sort_column in df.columns:
+            df = df.sort_values(by=sort_column, ascending=(sort_order == "asc"))
 
         if keep_strategy == "unique":
             df_clean = df.drop_duplicates(subset=target_columns, keep=False)

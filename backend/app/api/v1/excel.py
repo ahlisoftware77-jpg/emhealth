@@ -106,7 +106,14 @@ def process_dedup_job(job_id: str, req: RemoveDuplicateRequest):
     try:
         job_queue_service.update_job(job_id, status="Running", progress=30.0, message="Menghapus duplikasi baris...")
         f_path = settings.UPLOAD_DIR / req.file_name
-        out_path, summary = ExcelService.remove_duplicates(f_path, req.target_columns, req.keep_strategy, req.export_format)
+        out_path, summary = ExcelService.remove_duplicates(
+            f_path, 
+            req.target_columns, 
+            req.keep_strategy, 
+            req.sort_column, 
+            req.sort_order, 
+            req.export_format
+        )
         
         job_queue_service.update_job(
             job_id,

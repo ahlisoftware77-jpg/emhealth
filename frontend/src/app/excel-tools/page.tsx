@@ -438,7 +438,10 @@ export default function ExcelToolsPage() {
   const [dedupFilePreview, setDedupFilePreview] = useState<any>(null);
   const [loadingDedupPreview, setLoadingDedupPreview] = useState<boolean>(false);
   const [dedupCols, setDedupCols] = useState<string>("Email");
+  const [dedupSearchQuery, setDedupSearchQuery] = useState<string>("");
   const [keepStrategy, setKeepStrategy] = useState<"first" | "last" | "unique">("first");
+  const [dedupSortCol, setDedupSortCol] = useState<string>("");
+  const [dedupSortDir, setDedupSortDir] = useState<"asc" | "desc">("asc");
   const [dedupJobResult, setDedupJobResult] = useState<any>(null);
 
   // Client-side dedup calculation for preview
@@ -446,7 +449,28 @@ export default function ExcelToolsPage() {
     if (!dedupFilePreview?.preview_data) return { rows: [], stats: { total: 0, removed: 0, kept: 0 } };
     
     const targetCols = dedupCols.split(",").map(s => s.trim()).filter(Boolean);
-    const rows = dedupFilePreview.preview_data;
+    let rows = [...dedupFilePreview.preview_data];
+
+    if (dedupSortCol && dedupSortCol.trim()) {
+      const sCol = dedupSortCol.trim();
+      rows.sort((a, b) => {
+        const valA = a[sCol] ?? "";
+        const valB = b[sCol] ?? "";
+        
+        // Coba bandingkan sebagai angka jika memungkinkan
+        const numA = Number(valA);
+        const numB = Number(valB);
+        let comp = 0;
+        
+        if (!isNaN(numA) && !isNaN(numB)) {
+          comp = numA - numB;
+        } else {
+          comp = String(valA).localeCompare(String(valB));
+        }
+        
+        return dedupSortDir === "asc" ? comp : -comp;
+      });
+    }
     
     if (targetCols.length === 0) {
       return {
@@ -497,7 +521,7 @@ export default function ExcelToolsPage() {
         kept: rows.length - removedCount
       }
     };
-  }, [dedupFilePreview, dedupCols, keepStrategy]);
+  }, [dedupFilePreview, dedupCols, keepStrategy, dedupSortCol, dedupSortDir]);
 
   // State for Merge
   const [mergeFiles, setMergeFiles] = useState<File[]>([]);
@@ -635,6 +659,8 @@ export default function ExcelToolsPage() {
         file_name: dedupFile.name,
         target_columns: dedupCols.split(",").map((s) => s.trim()),
         keep_strategy: keepStrategy,
+        sort_column: dedupSortCol.trim() || null,
+        sort_order: dedupSortDir,
         export_format: "xlsx",
       });
       setDedupJobResult(res.job);
@@ -1904,6 +1930,32 @@ export default function ExcelToolsPage() {
                 </select>
               </div>
 
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    Urutkan Berdasarkan Kolom (Opsional):
+                  </label>
+                  <input
+                    type="text"
+                    value={dedupSortCol}
+                    onChange={(e) => setDedupSortCol(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
+                    placeholder="misal: Tanggal"
+                  />
+                </div>
+                <div className="w-1/3">
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">Urutan:</label>
+                  <select
+                    value={dedupSortDir}
+                    onChange={(e: any) => setDedupSortDir(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background"
+                  >
+                    <option value="asc">A-Z (Ascending)</option>
+                    <option value="desc">Z-A (Descending)</option>
+                  </select>
+                </div>
+              </div>
+
               <button
                 onClick={handleDedup}
                 disabled={isProcessing || loadingDedupPreview || !dedupFilePreview}
@@ -1948,21 +2000,40 @@ export default function ExcelToolsPage() {
                   </div>
                 </div>
                 
+                <div className="p-3 border-b border-border bg-card">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Cari data di tabel pratinjau..."
+                      value={dedupSearchQuery}
+                      onChange={(e) => setDedupSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                    />
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto max-h-[500px]">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-muted/50 sticky top-0 border-b border-border text-foreground font-semibold shadow-sm z-10">
+                    <thead className="bg-slate-950 sticky top-0 border-b-2 border-emerald-500/50 text-slate-100 font-bold shadow-md z-10">
                       <tr>
-                        <th className="p-2 border-r border-border text-center w-12">#</th>
-                        <th className="p-2 border-r border-border text-center w-24">Status</th>
+                        <th className="p-3 border-r border-slate-700/50 text-center w-12">#</th>
+                        <th className="p-3 border-r border-slate-700/50 text-center w-24">Status</th>
                         {dedupFilePreview.columns.map((col: string, idx: number) => (
-                          <th key={idx} className="p-2 border-r border-border truncate max-w-[200px]">
+                          <th key={idx} className="p-3 border-r border-slate-700/50 truncate max-w-[200px]">
                             {col}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border font-mono text-[11px]">
-                      {processedDedupData.rows.map((row: any, rIdx: number) => {
+                      {processedDedupData.rows
+                        .filter((row: any) => {
+                          if (!dedupSearchQuery) return true;
+                          const q = dedupSearchQuery.toLowerCase();
+                          return Object.values(row).some(v => String(v).toLowerCase().includes(q));
+                        })
+                        .map((row: any, rIdx: number) => {
                         const isRemoved = row.__dedup_status === "removed";
                         return (
                           <tr 
