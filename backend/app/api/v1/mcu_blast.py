@@ -25,13 +25,34 @@ from email.utils import formatdate, make_msgid
 
 router = APIRouter(prefix="/mcu-blast", tags=["MCU Blast & Image Optimizer"])
 
-STORAGE_DIR = r"D:\COMPRESS"
+# Path storage dinamis — kompatibel dengan Windows lokal dan Vercel Linux (read-only filesystem)
+# Di Vercel, gunakan /tmp yang writable. Di Windows lokal, gunakan D:\COMPRESS jika ada, atau fallback ke /tmp lokal.
+import tempfile
+import platform
+
+def _get_storage_dir() -> str:
+    """Kembalikan direktori storage yang writable sesuai environment."""
+    # Cek apakah D:\COMPRESS tersedia (Windows lokal user)
+    windows_dir = r"D:\COMPRESS"
+    if platform.system() == "Windows" and os.path.exists(r"D:\\"):
+        return windows_dir
+    # Fallback ke sistem temp dir (writable di semua env termasuk Vercel)
+    return os.path.join(tempfile.gettempdir(), "mcu_blast")
+
+STORAGE_DIR = _get_storage_dir()
 INPUT_DIR = os.path.join(STORAGE_DIR, "foto asli")
 OUTPUT_DIR = os.path.join(STORAGE_DIR, "output")
 DEFAULT_EXCEL_PATH = os.path.join(STORAGE_DIR, "idpass-update2.xlsx")
 
-os.makedirs(INPUT_DIR, exist_ok=True)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+def _ensure_dirs():
+    """Buat direktori storage jika belum ada. Dipanggil saat dibutuhkan, bukan saat import."""
+    try:
+        os.makedirs(INPUT_DIR, exist_ok=True)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+    except OSError as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Tidak bisa membuat direktori MCU Blast ({e}). Mode memory-only.")
+
 
 class SMTPVerifyRequest(BaseModel):
     mode: str = "GMAIL" # "GMAIL" or "CUSTOM_DOMAIN"
