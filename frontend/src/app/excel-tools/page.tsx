@@ -27,6 +27,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowRight,
+  ArrowRightToLine,
+  ArrowLeftToLine,
   Eye,
   Table as TableIcon,
   RefreshCw,
@@ -55,7 +57,8 @@ import {
   Undo2,
   Link2,
   Unlink,
-  History
+  History,
+  Copy
 } from "lucide-react";
 
 export default function ExcelToolsPage() {
@@ -307,6 +310,72 @@ export default function ExcelToolsPage() {
   }, [hasUnsavedChanges1, hasUnsavedChanges2]);
 
   // Handler to toggle column sorting
+  const handleCopyColumnToFile2 = (colName: string) => {
+    if (!file2Preview?.preview_data) {
+      setMessage("❌ Silakan upload File 2 terlebih dahulu sebelum menyalin kolom.");
+      return;
+    }
+    if (!file1Preview?.preview_data) return;
+
+    saveHistory(2);
+
+    let newCols = [...file2Preview.columns];
+    if (!newCols.includes(colName)) {
+      newCols.push(colName);
+    }
+
+    // Expand to the maximum length so no data is truncated if File 1 is longer
+    const maxRows = Math.max(file2Preview.preview_data.length, file1Preview.preview_data.length);
+    const newData = Array.from({ length: maxRows }).map((_, idx) => {
+      const row = file2Preview.preview_data[idx] || {};
+      // Strict undefined check to handle falsey values correctly, fallback to "" if absolutely missing
+      const val = file1Preview.preview_data[idx] ? (file1Preview.preview_data[idx][colName] ?? "") : "";
+      return { ...row, [colName]: val };
+    });
+
+    setFile2Preview({
+      ...file2Preview,
+      columns: newCols,
+      preview_data: newData,
+      total_rows: maxRows
+    });
+
+    setHasUnsavedChanges2(true);
+    setMessage(`✅ Seluruh isi kolom "${colName}" berhasil disalin ke File 2 (Tersinkronisasi ${maxRows} baris)!`);
+  };
+
+  const handleCopyColumnToFile1 = (colName: string) => {
+    if (!file1Preview?.preview_data) {
+      setMessage("❌ Silakan upload File 1 terlebih dahulu sebelum menyalin kolom.");
+      return;
+    }
+    if (!file2Preview?.preview_data) return;
+
+    saveHistory(1);
+
+    let newCols = [...file1Preview.columns];
+    if (!newCols.includes(colName)) {
+      newCols.push(colName);
+    }
+
+    const maxRows = Math.max(file1Preview.preview_data.length, file2Preview.preview_data.length);
+    const newData = Array.from({ length: maxRows }).map((_, idx) => {
+      const row = file1Preview.preview_data[idx] || {};
+      const val = file2Preview.preview_data[idx] ? (file2Preview.preview_data[idx][colName] ?? "") : "";
+      return { ...row, [colName]: val };
+    });
+
+    setFile1Preview({
+      ...file1Preview,
+      columns: newCols,
+      preview_data: newData,
+      total_rows: maxRows
+    });
+
+    setHasUnsavedChanges1(true);
+    setMessage(`✅ Seluruh isi kolom "${colName}" berhasil disalin ke File 1 (Tersinkronisasi ${maxRows} baris)!`);
+  };
+
   const handleSortColumn = (fileNum: 1 | 2, col: string) => {
     if (fileNum === 1) {
       if (sortCol1 === col) {
@@ -343,8 +412,22 @@ export default function ExcelToolsPage() {
     else setIsSavingFile2(true);
 
     try {
+      // Pastikan data yang disimpan mengikuti urutan Sort yang sedang aktif di UI (tanpa terpengaruh Filter Pencarian)
+      let dataToSave = [...targetPreview.preview_data];
+      const activeSortCol = fileNum === 1 ? sortCol1 : sortCol2;
+      const activeSortDir = fileNum === 1 ? sortDir1 : sortDir2;
+      
+      if (activeSortCol) {
+        dataToSave.sort((a, b) => {
+          const valA = String(a[activeSortCol] ?? "").toLowerCase();
+          const valB = String(b[activeSortCol] ?? "").toLowerCase();
+          const comp = valA.localeCompare(valB, undefined, { numeric: true });
+          return activeSortDir === "asc" ? comp : -comp;
+        });
+      }
+
       const fileUrl = (targetFile as any).cloudinaryUrl || undefined;
-      const res = await ExcelAPI.savePreview(targetFile.name, targetPreview.preview_data, fileUrl);
+      const res = await ExcelAPI.savePreview(targetFile.name, dataToSave, fileUrl);
       
       // Trigger download using showSaveFilePicker (Save As) if supported, else fallback to auto-download
       // Menggunakan API internal Next.js proxy agar 100% bebas dari isu CORS maupun IP berbeda
@@ -1787,14 +1870,20 @@ export default function ExcelToolsPage() {
                                         >
                                           {col}
                                         </span>
-                                        <div className="flex items-center gap-1 shrink-0 bg-emerald-950/90 px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <button onClick={() => handleSortColumn(1, col)} className={`p-0.5 hover:bg-emerald-500/20 rounded transition-colors ${isSorted ? "text-amber-300" : "text-emerald-500/60 hover:text-emerald-300"}`} title="Urutkan">
-                                            {isSorted ? (sortDir1 === "asc" ? <SortAsc className="w-3 h-3" /> : <SortDesc className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3" />}
-                                          </button>
-                                          <button onClick={(e) => { e.stopPropagation(); handleDeleteColumn(1, col); }} className="p-0.5 hover:bg-rose-500/20 text-rose-500/70 hover:text-rose-400 rounded transition-colors" title={`Hapus kolom ${col}`}>
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0 bg-emerald-950/90 px-1 py-0.5 rounded transition-opacity opacity-40 group-hover:opacity-100">
+                                            <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(col); setMessage(`✅ Nama kolom "${col}" disalin!`); }} className="p-0.5 hover:bg-emerald-500/20 text-emerald-500/80 hover:text-emerald-400 rounded transition-colors" title={`Salin nama kolom ke teks`}>
+                                              <Copy className="w-3 h-3" />
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleCopyColumnToFile2(col); }} className="p-0.5 hover:bg-indigo-500/20 text-indigo-500/80 hover:text-indigo-400 rounded transition-colors" title={`Salin isi kolom ${col} ke File 2`}>
+                                              <ArrowRightToLine className="w-3 h-3" />
+                                            </button>
+                                            <button onClick={() => handleSortColumn(1, col)} className={`p-0.5 hover:bg-emerald-500/20 rounded transition-colors ${isSorted ? "text-amber-300" : "text-emerald-500/60 hover:text-emerald-300"}`} title="Urutkan">
+                                              {isSorted ? (sortDir1 === "asc" ? <SortAsc className="w-3 h-3" /> : <SortDesc className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3" />}
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteColumn(1, col); }} className="p-0.5 hover:bg-rose-500/20 text-rose-500/70 hover:text-rose-400 rounded transition-colors" title={`Hapus kolom ${col}`}>
+                                              <Trash2 className="w-3 h-3" />
+                                            </button>
+                                          </div>
                                       </div>
                                     </th>
                                   );
@@ -2002,14 +2091,20 @@ export default function ExcelToolsPage() {
                                         >
                                           {col}
                                         </span>
-                                        <div className="flex items-center gap-1 shrink-0 bg-sky-950/90 px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <button onClick={() => handleSortColumn(2, col)} className={`p-0.5 hover:bg-sky-500/20 rounded transition-colors ${isSorted ? "text-amber-300" : "text-sky-500/60 hover:text-sky-300"}`} title="Urutkan">
-                                            {isSorted ? (sortDir2 === "asc" ? <SortAsc className="w-3 h-3" /> : <SortDesc className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3" />}
-                                          </button>
-                                          <button onClick={(e) => { e.stopPropagation(); handleDeleteColumn(2, col); }} className="p-0.5 hover:bg-rose-500/20 text-rose-500/70 hover:text-rose-400 rounded transition-colors" title={`Hapus kolom ${col}`}>
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0 bg-sky-950/90 px-1 py-0.5 rounded transition-opacity opacity-40 group-hover:opacity-100">
+                                            <button onClick={(e) => { e.stopPropagation(); handleCopyColumnToFile1(col); }} className="p-0.5 hover:bg-indigo-500/20 text-indigo-500/80 hover:text-indigo-400 rounded transition-colors" title={`Salin isi kolom ${col} ke File 1`}>
+                                              <ArrowLeftToLine className="w-3 h-3" />
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(col); setMessage(`✅ Nama kolom "${col}" disalin!`); }} className="p-0.5 hover:bg-sky-500/20 text-sky-500/80 hover:text-sky-400 rounded transition-colors" title={`Salin nama kolom ke teks`}>
+                                              <Copy className="w-3 h-3" />
+                                            </button>
+                                            <button onClick={() => handleSortColumn(2, col)} className={`p-0.5 hover:bg-sky-500/20 rounded transition-colors ${isSorted ? "text-amber-300" : "text-sky-500/60 hover:text-sky-300"}`} title="Urutkan">
+                                              {isSorted ? (sortDir2 === "asc" ? <SortAsc className="w-3 h-3" /> : <SortDesc className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3" />}
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteColumn(2, col); }} className="p-0.5 hover:bg-rose-500/20 text-rose-500/70 hover:text-rose-400 rounded transition-colors" title={`Hapus kolom ${col}`}>
+                                              <Trash2 className="w-3 h-3" />
+                                            </button>
+                                          </div>
                                       </div>
                                     </th>
                                   );
