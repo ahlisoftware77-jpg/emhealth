@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 if os.environ.get("VERCEL") == "1":
     STORAGE_BASE = Path(tempfile.gettempdir()) / "emhealth_storage"
 else:
-    STORAGE_BASE = BASE_DIR / "storage"
+    STORAGE_BASE = BASE_DIR.parent / "storage"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Data Utility Center API"

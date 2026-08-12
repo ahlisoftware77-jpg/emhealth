@@ -46,7 +46,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`border-r border-border bg-card flex flex-col justify-between hidden md:flex min-h-screen transition-all duration-300 ${
+      className={`border-r border-border bg-card flex flex-col justify-between hidden md:flex h-screen sticky top-0 overflow-y-auto overflow-x-hidden transition-all duration-300 ${
         isCollapsed ? "w-16" : "w-64"
       }`}
     >

@@ -131,6 +131,33 @@ class FirestoreService:
             logger.error(f"Gagal membaca presets dari Firestore: {e}")
             return []
 
+    # --- FILE HISTORY FIRESTORE PERSISTENCE ---
+    def save_file_history(self, history_data: Dict[str, Any]):
+        if not self.is_available:
+            return
+        try:
+            self.db.collection("file_history").document(history_data["id"]).set(history_data)
+        except Exception as e:
+            logger.error(f"Gagal menyimpan riwayat file ke Firestore: {e}")
+
+    def delete_file_history(self, history_id: str):
+        if not self.is_available:
+            return
+        try:
+            self.db.collection("file_history").document(history_id).delete()
+        except Exception as e:
+            logger.error(f"Gagal menghapus riwayat file dari Firestore: {e}")
+
+    def list_file_history(self) -> List[Dict[str, Any]]:
+        if not self.is_available:
+            return []
+        try:
+            docs = self.db.collection("file_history").order_by("created_at", direction=firestore.Query.DESCENDING).stream()
+            return [d.to_dict() for d in docs]
+        except Exception as e:
+            logger.error(f"Gagal membaca riwayat file dari Firestore: {e}")
+            return []
+
     # --- SYSTEM SETTINGS FIRESTORE PERSISTENCE ---
     def save_settings(self, settings_data: Dict[str, Any]) -> bool:
         if not self.is_available:

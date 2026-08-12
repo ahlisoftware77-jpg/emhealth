@@ -1,8 +1,24 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useExcelStore, ExcelState } from "@/store/useExcelStore";
+
+function useExcelStoreState<K extends keyof ExcelState>(key: K): [ExcelState[K], (val: ExcelState[K] | ((prev: ExcelState[K]) => ExcelState[K])) => void] {
+  const value = useExcelStore(state => state[key]);
+  const setExcelState = useExcelStore(state => state.setExcelState);
+  
+  const setter = (newVal: any) => {
+    if (typeof newVal === 'function') {
+       setExcelState({ [key]: newVal(useExcelStore.getState()[key]) } as any);
+    } else {
+       setExcelState({ [key]: newVal } as any);
+    }
+  };
+  return [value, setter];
+}
+
 import { FileUploader } from "@/components/ui/FileUploader";
-import { ExcelAPI } from "@/lib/api";
+import { ExcelAPI, FileHistoryAPI, apiClient } from "@/lib/api";
 import {
   FileSpreadsheet,
   GitCompare,
@@ -36,35 +52,99 @@ import {
   Save,
   Edit3,
   Trash2,
+  Undo2,
   Link2,
-  Unlink
+  Unlink,
+  History
 } from "lucide-react";
 
 export default function ExcelToolsPage() {
-  const [activeTab, setActiveTab] = useState<"compare" | "dedup" | "merge" | "split">("compare");
+  const [activeTab, setActiveTab] = useExcelStoreState("activeTab");
 
   // State for Compare
-  const [file1, setFile1] = useState<File | null>(null);
-  const [file2, setFile2] = useState<File | null>(null);
-  const [keyCols1, setKeyCols1] = useState<string>("NIK, Nama");
-  const [keyCols2, setKeyCols2] = useState<string>("NIK, Nama");
-  const [matchMode, setMatchMode] = useState<"exact" | "similar">("exact");
-  const [similarityThreshold, setSimilarityThreshold] = useState<number>(80);
-  const [compareFormat, setCompareFormat] = useState<"xlsx" | "csv">("xlsx");
-  const [compareJobResult, setCompareJobResult] = useState<any>(null);
+  const [file1, setFile1] = useExcelStoreState("file1");
+  const [file2, setFile2] = useExcelStoreState("file2");
+  const [file1Name, setFile1Name] = useExcelStoreState("file1Name");
+  const [file2Name, setFile2Name] = useExcelStoreState("file2Name");
+  const [keyCols1, setKeyCols1] = useExcelStoreState("keyCols1");
+  const [keyCols2, setKeyCols2] = useExcelStoreState("keyCols2");
+  const [matchMode, setMatchMode] = useExcelStoreState("matchMode");
+  const [similarityThreshold, setSimilarityThreshold] = useExcelStoreState("similarityThreshold");
+  const [compareFormat, setCompareFormat] = useExcelStoreState("compareFormat");
+  const [compareJobResult, setCompareJobResult] = useExcelStoreState("compareJobResult");
+
+  // File History States
+  const [showHistoryModal, setShowHistoryModal] = useExcelStoreState("showHistoryModal");
+  const [historyList, setHistoryList] = useExcelStoreState("historyList");
+  const [isLoadingHistory, setIsLoadingHistory] = useExcelStoreState("isLoadingHistory");
+  const [activeHistoryTarget, setActiveHistoryTarget] = useExcelStoreState("activeHistoryTarget");
+
+  const fetchHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const res = await FileHistoryAPI.list();
+      setHistoryList(res.history || []);
+    } catch (e) {
+      console.error(e);
+    }
+    setIsLoadingHistory(false);
+  };
+
+  const handleDeleteHistory = async (id: string) => {
+    if (!confirm("Hapus riwayat ini? File di Cloudinary juga akan kehilangan referensinya.")) return;
+    try {
+      await FileHistoryAPI.delete(id);
+      fetchHistory();
+    } catch (e) {
+      alert("Gagal menghapus riwayat");
+    }
+  };
+
+  const handleSelectHistory = async (hist: any) => {
+    setShowHistoryModal(false);
+    setMessage(null);
+    setIsProcessing(true);
+
+    try {
+      const previewData = await ExcelAPI.previewUrl(hist.file_url);
+
+      if (activeHistoryTarget === "file1") {
+        setFile1Preview(previewData);
+        setFile1(null);
+        setFile1Name(hist.file_name);
+      } else if (activeHistoryTarget === "file2") {
+        setFile2Preview(previewData);
+        setFile2(null);
+        setFile2Name(hist.file_name);
+      } else if (activeHistoryTarget === "dedup") {
+        setDedupFilePreview(previewData);
+        setDedupFile(null);
+        setDedupFileName(hist.file_name);
+      }
+    } catch (err: any) {
+      setMessage(`Gagal memuat file dari riwayat: ${err.message || err}`);
+    }
+    setIsProcessing(false);
+  };
+
 
   // Preview States for File 1 & File 2
-  const [file1Preview, setFile1Preview] = useState<{ columns: string[]; total_rows: number; preview_data: any[] } | null>(null);
-  const [file2Preview, setFile2Preview] = useState<{ columns: string[]; total_rows: number; preview_data: any[] } | null>(null);
-  const [loadingPreview1, setLoadingPreview1] = useState<boolean>(false);
-  const [loadingPreview2, setLoadingPreview2] = useState<boolean>(false);
-  const [showPreview, setShowPreview] = useState<boolean>(true);
-  const [previewLayoutMode, setPreviewLayoutMode] = useState<"stacked" | "grid" | "fullscreen">("grid");
-  const [isFormMinimized, setIsFormMinimized] = useState<boolean>(false);
-  const [showOnlyKeyColumns, setShowOnlyKeyColumns] = useState<boolean>(false);
-  const [selectedCellValue, setSelectedCellValue] = useState<string | null>(null);
+  const [file1Preview, setFile1Preview] = useExcelStoreState("file1Preview");
+  const [file2Preview, setFile2Preview] = useExcelStoreState("file2Preview");
+  const [file1History, setFile1History] = useExcelStoreState("file1History");
+  const [file2History, setFile2History] = useExcelStoreState("file2History");
+  const [loadingPreview1, setLoadingPreview1] = useExcelStoreState("loadingPreview1");
+  const [loadingPreview2, setLoadingPreview2] = useExcelStoreState("loadingPreview2");
+  const [showPreview, setShowPreview] = useExcelStoreState("showPreview");
+  const [previewLayoutMode, setPreviewLayoutMode] = useExcelStoreState("previewLayoutMode");
+  const [isFormMinimized, setIsFormMinimized] = useExcelStoreState("isFormMinimized");
+  const [showOnlyKeyColumns, setShowOnlyKeyColumns] = useExcelStoreState("showOnlyKeyColumns");
+  const [previewLimit1, setPreviewLimit1] = useExcelStoreState("previewLimit1");
+  const [previewLimit2, setPreviewLimit2] = useExcelStoreState("previewLimit2");
+  const [previewLimitDedup, setPreviewLimitDedup] = useExcelStoreState("previewLimitDedup");
+  const [selectedCellValue, setSelectedCellValue] = useExcelStoreState("selectedCellValue");
   // Synchronized Scrolling States & Refs
-  const [syncScroll, setSyncScroll] = useState<boolean>(true);
+  const [syncScroll, setSyncScroll] = useExcelStoreState("syncScroll");
   const tableContainer1Ref = useRef<HTMLDivElement | null>(null);
   const tableContainer2Ref = useRef<HTMLDivElement | null>(null);
   const isSyncingScrollRef = useRef<boolean>(false);
@@ -95,7 +175,8 @@ export default function ExcelToolsPage() {
 
     // Wait for DOM update then scroll first matching element in opposite preview into view
     setTimeout(() => {
-      const matchElements = document.querySelectorAll(`[data-cell-value="${trimmed.toLowerCase()}"]`);
+      const safeValue = trimmed.toLowerCase().replace(/"/g, '\\"');
+      const matchElements = document.querySelectorAll(`[data-cell-value="${safeValue}"]`);
       if (matchElements.length > 0) {
         matchElements[0].scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
       }
@@ -103,8 +184,8 @@ export default function ExcelToolsPage() {
   };
 
   // AI Analytics & Incomplete Name Reconciliation States
-  const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
-  const [isAnalyzingAI, setIsAnalyzingAI] = useState<boolean>(false);
+  const [aiAnalysisResult, setAiAnalysisResult] = useExcelStoreState("aiAnalysisResult");
+  const [isAnalyzingAI, setIsAnalyzingAI] = useExcelStoreState("isAnalyzingAI");
 
   // Memoized Sets of selected column names for zero-latency UI re-rendering
   const selectedKeyCols1Set = useMemo(() => {
@@ -167,8 +248,8 @@ export default function ExcelToolsPage() {
   }, [file1Preview, selectedKeyCols1Set]);
 
   // Single Global Search Query State for both File 1 & File 2
-  const [globalFilterQuery, setGlobalFilterQuery] = useState<string>("");
-  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
+  const [globalFilterQuery, setGlobalFilterQuery] = useExcelStoreState("globalFilterQuery");
+  const [isSearchFocused, setIsSearchFocused] = useExcelStoreState("isSearchFocused");
 
   // Auto Suggestions across ALL columns from File 1 & File 2
   const searchSuggestions = useMemo(() => {
@@ -197,22 +278,22 @@ export default function ExcelToolsPage() {
   }, [file1Preview, file2Preview, globalFilterQuery]);
 
   // Sorting States for File 1 & File 2
-  const [sortCol1, setSortCol1] = useState<string | null>(null);
-  const [sortDir1, setSortDir1] = useState<"asc" | "desc">("asc");
-  const [sortCol2, setSortCol2] = useState<string | null>(null);
-  const [sortDir2, setSortDir2] = useState<"asc" | "desc">("asc");
+  const [sortCol1, setSortCol1] = useExcelStoreState("sortCol1");
+  const [sortDir1, setSortDir1] = useExcelStoreState("sortDir1");
+  const [sortCol2, setSortCol2] = useExcelStoreState("sortCol2");
+  const [sortDir2, setSortDir2] = useExcelStoreState("sortDir2");
 
   // Inline Cell Edit State (e.g. { fileNum: 1, rowIndex: 0, col: "Nama" })
-  const [editingCell, setEditingCell] = useState<{ fileNum: 1 | 2; rowIndex: number; col: string } | null>(null);
-  const [editingValue, setEditingValue] = useState<string>("");
+  const [editingCell, setEditingCell] = useExcelStoreState("editingCell");
+  const [editingValue, setEditingValue] = useExcelStoreState("editingValue");
 
   // Column Name Edit State (e.g. { fileNum: 1, colIdx: 0 })
-  const [editingColumn, setEditingColumn] = useState<{ fileNum: 1 | 2; colIdx: number } | null>(null);
-  const [editingColumnValue, setEditingColumnValue] = useState<string>("");
+  const [editingColumn, setEditingColumn] = useExcelStoreState("editingColumn");
+  const [editingColumnValue, setEditingColumnValue] = useExcelStoreState("editingColumnValue");
 
   // Track Unsaved Changes
-  const [hasUnsavedChanges1, setHasUnsavedChanges1] = useState<boolean>(false);
-  const [hasUnsavedChanges2, setHasUnsavedChanges2] = useState<boolean>(false);
+  const [hasUnsavedChanges1, setHasUnsavedChanges1] = useExcelStoreState("hasUnsavedChanges1");
+  const [hasUnsavedChanges2, setHasUnsavedChanges2] = useExcelStoreState("hasUnsavedChanges2");
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -245,8 +326,8 @@ export default function ExcelToolsPage() {
   };
 
   // Saving State Indicators
-  const [isSavingFile1, setIsSavingFile1] = useState<boolean>(false);
-  const [isSavingFile2, setIsSavingFile2] = useState<boolean>(false);
+  const [isSavingFile1, setIsSavingFile1] = useExcelStoreState("isSavingFile1");
+  const [isSavingFile2, setIsSavingFile2] = useExcelStoreState("isSavingFile2");
 
   // Handler to persist edited preview rows directly into physical Excel file
   const handleSaveToFile = async (fileNum: 1 | 2) => {
@@ -262,17 +343,67 @@ export default function ExcelToolsPage() {
     else setIsSavingFile2(true);
 
     try {
-      const res = await ExcelAPI.savePreview(targetFile.name, targetPreview.preview_data);
+      const fileUrl = (targetFile as any).cloudinaryUrl || undefined;
+      const res = await ExcelAPI.savePreview(targetFile.name, targetPreview.preview_data, fileUrl);
       
-      // Auto-trigger download of updated file to browser so user receives modified file with updated timestamp
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003/api/v1";
-      const downloadUrl = `${apiBase}/storage/download/${encodeURIComponent(targetFile.name)}`;
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = targetFile.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Trigger download using showSaveFilePicker (Save As) if supported, else fallback to auto-download
+      // Menggunakan API internal Next.js proxy agar 100% bebas dari isu CORS maupun IP berbeda
+      const downloadUrl = `/api/download?filename=${encodeURIComponent(targetFile.name)}`;
+      
+      try {
+        if ('showSaveFilePicker' in window) {
+          let blob;
+          try {
+            // Coba fetch menggunakan rute internal Next.js
+            const fallbackRes = await fetch(downloadUrl);
+            if (!fallbackRes.ok) throw new Error("Gagal fallback fetch native: " + fallbackRes.statusText);
+            blob = await fallbackRes.blob();
+          } catch (fetchErr) {
+            console.warn("fetch internal gagal, mencoba api Base sebagai fallback...", fetchErr);
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003/api/v1";
+            const response = await apiClient.get(`/storage/download/${encodeURIComponent(targetFile.name)}`, { responseType: 'blob' });
+            blob = response.data;
+          }
+          
+          const isCsv = targetFile.name.toLowerCase().endsWith(".csv");
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: targetFile.name,
+            types: [{
+              description: isCsv ? 'CSV File' : 'Excel File',
+              accept: isCsv ? { 'text/csv': ['.csv'] } : { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'], 'application/vnd.ms-excel': ['.xls'] },
+            }],
+          });
+          
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        } else {
+          const link = document.createElement("a");
+          link.href = downloadUrl;
+          link.download = targetFile.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (downloadErr: any) {
+        if (downloadErr.name === 'AbortError') {
+          setMessage(`✅ Perubahan disimpan di memori server, tetapi penyimpanan ke lokal dibatalkan.`);
+          if (fileNum === 1) setHasUnsavedChanges1(false);
+          else setHasUnsavedChanges2(false);
+          return;
+        }
+        console.error("Save As error:", downloadErr);
+        // Jika gagal total, fallback paksa menggunakan tag <a> agar user tetap bisa dapat file-nya
+        console.warn("Mencoba fallback paksa dengan tag a...");
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = targetFile.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        throw new Error("Gagal memunculkan popup Save As. File akan diunduh secara otomatis sebagai gantinya.");
+      }
 
       setMessage(`✅ ${res.message || `Perubahan data File ${fileNum} (${targetFile.name}) berhasil disimpan!`}. File Excel hasil perubahan telah diunduh.`);
       
@@ -280,7 +411,9 @@ export default function ExcelToolsPage() {
       if (fileNum === 1) setHasUnsavedChanges1(false);
       else setHasUnsavedChanges2(false);
     } catch (err: any) {
-      setMessage(`❌ Gagal menyimpan file Excel ${fileNum}: ${err.response?.data?.detail || err.message}`);
+      console.error(`SaveToFile Error for file ${fileNum}:`, err);
+      const errMsg = err.response?.data?.detail || err.message || "Unknown error";
+      setMessage(`❌ Gagal menyimpan file Excel ${fileNum}: ${errMsg}`);
     } finally {
       if (fileNum === 1) setIsSavingFile1(false);
       else setIsSavingFile2(false);
@@ -288,6 +421,27 @@ export default function ExcelToolsPage() {
   };
 
   // Handler to update a cell value with AUTO-SAVE into filePreview state (by object reference)
+
+  const saveHistory = (fileNum: 1 | 2) => {
+    if (fileNum === 1 && file1Preview) {
+      setFile1History([...file1History, file1Preview]);
+    } else if (fileNum === 2 && file2Preview) {
+      setFile2History([...file2History, file2Preview]);
+    }
+  };
+
+  const handleUndo = (fileNum: 1 | 2) => {
+    if (fileNum === 1 && file1History.length > 0) {
+      const prev = file1History[file1History.length - 1];
+      setFile1Preview(prev);
+      setFile1History(file1History.slice(0, -1));
+    } else if (fileNum === 2 && file2History.length > 0) {
+      const prev = file2History[file2History.length - 1];
+      setFile2Preview(prev);
+      setFile2History(file2History.slice(0, -1));
+    }
+  };
+
   const handleCellSave = (fileNum: 1 | 2, rowObj: any, col: string, newValue: string) => {
     if (fileNum === 1 && file1Preview) {
       const realIndex = file1Preview.preview_data.indexOf(rowObj);
@@ -310,6 +464,64 @@ export default function ExcelToolsPage() {
   };
 
   // Handler to rename a column header
+  
+  const handleDeleteRow = (fileNum: 1 | 2, row: any) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus baris ini?")) return;
+
+    if (fileNum === 1 && file1Preview) {
+      saveHistory(1);
+      const idx = file1Preview.preview_data.indexOf(row);
+      if (idx !== -1) {
+        saveHistory(1);
+      const newPreviewData = [...file1Preview.preview_data];
+        newPreviewData.splice(idx, 1);
+        setFile1Preview({ ...file1Preview, preview_data: newPreviewData, total_rows: file1Preview.total_rows - 1 });
+        setHasUnsavedChanges1(true);
+      }
+    } else if (fileNum === 2 && file2Preview) {
+      saveHistory(2);
+      const idx = file2Preview.preview_data.indexOf(row);
+      if (idx !== -1) {
+        saveHistory(2);
+      const newPreviewData = [...file2Preview.preview_data];
+        newPreviewData.splice(idx, 1);
+        setFile2Preview({ ...file2Preview, preview_data: newPreviewData, total_rows: file2Preview.total_rows - 1 });
+        setHasUnsavedChanges2(true);
+      }
+    }
+  };
+
+  const handleDeleteColumn = (fileNum: 1 | 2, colName: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus kolom "${colName}" beserta seluruh isinya?`)) return;
+    if (fileNum === 1 && file1Preview) {
+      saveHistory(1);
+      const newColumns = file1Preview.columns.filter(c => c !== colName);
+      const newPreviewData = file1Preview.preview_data.map(row => {
+        const newRow = { ...row };
+        delete newRow[colName];
+        return newRow;
+      });
+      setFile1Preview({ ...file1Preview, columns: newColumns, preview_data: newPreviewData });
+      if (selectedKeyCols1Set.has(colName)) {
+        setKeyCols1(Array.from(selectedKeyCols1Set).filter(c => c !== colName).join(", "));
+      }
+      setHasUnsavedChanges1(true);
+    } else if (fileNum === 2 && file2Preview) {
+      saveHistory(2);
+      const newColumns = file2Preview.columns.filter(c => c !== colName);
+      const newPreviewData = file2Preview.preview_data.map(row => {
+        const newRow = { ...row };
+        delete newRow[colName];
+        return newRow;
+      });
+      setFile2Preview({ ...file2Preview, columns: newColumns, preview_data: newPreviewData });
+      if (selectedKeyCols2Set.has(colName)) {
+        setKeyCols2(Array.from(selectedKeyCols2Set).filter(c => c !== colName).join(", "));
+      }
+      setHasUnsavedChanges2(true);
+    }
+  };
+
   const handleColumnRenameSave = (fileNum: 1 | 2, oldColName: string, newColName: string) => {
     const trimmedNewColName = newColName.trim();
     if (!trimmedNewColName || trimmedNewColName === oldColName) {
@@ -324,6 +536,7 @@ export default function ExcelToolsPage() {
       }
       
       // Update columns array
+      saveHistory(1);
       const newColumns = file1Preview.columns.map(c => c === oldColName ? trimmedNewColName : c);
       
       // Update keys in preview_data
@@ -349,6 +562,7 @@ export default function ExcelToolsPage() {
         return;
       }
       
+      saveHistory(2);
       const newColumns = file2Preview.columns.map(c => c === oldColName ? trimmedNewColName : c);
       const newPreviewData = file2Preview.preview_data.map(row => {
         const newRow = { ...row };
@@ -434,15 +648,20 @@ export default function ExcelToolsPage() {
   }, [file2Preview, globalFilterQuery, sortCol2, sortDir2]);
 
   // State for Dedup
-  const [dedupFile, setDedupFile] = useState<File | null>(null);
-  const [dedupFilePreview, setDedupFilePreview] = useState<any>(null);
-  const [loadingDedupPreview, setLoadingDedupPreview] = useState<boolean>(false);
-  const [dedupCols, setDedupCols] = useState<string>("Email");
-  const [dedupSearchQuery, setDedupSearchQuery] = useState<string>("");
-  const [keepStrategy, setKeepStrategy] = useState<"first" | "last" | "unique">("first");
-  const [dedupSortCol, setDedupSortCol] = useState<string>("");
-  const [dedupSortDir, setDedupSortDir] = useState<"asc" | "desc">("asc");
-  const [dedupJobResult, setDedupJobResult] = useState<any>(null);
+  const [dedupFile, setDedupFile] = useExcelStoreState("dedupFile");
+  const [dedupFileName, setDedupFileName] = useExcelStoreState("dedupFileName");
+  const [dedupFilePreview, setDedupFilePreview] = useExcelStoreState("dedupFilePreview");
+  const [loadingDedupPreview, setLoadingDedupPreview] = useExcelStoreState("loadingDedupPreview");
+  const [dedupCols, setDedupCols] = useExcelStoreState("dedupCols");
+  const [dedupSearchQuery, setDedupSearchQuery] = useExcelStoreState("dedupSearchQuery");
+  const [keepStrategy, setKeepStrategy] = useExcelStoreState("keepStrategy");
+  const [dedupSortCol, setDedupSortCol] = useExcelStoreState("dedupSortCol");
+  const [dedupSortDir, setDedupSortDir] = useExcelStoreState("dedupSortDir");
+  const [dedupJobResult, setDedupJobResult] = useExcelStoreState("dedupJobResult");
+
+  const selectedDedupColsSet = useMemo(() => {
+    return new Set(dedupCols.split(",").map((s) => s.trim()).filter(Boolean));
+  }, [dedupCols]);
 
   // Client-side dedup calculation for preview
   const processedDedupData = useMemo(() => {
@@ -524,23 +743,24 @@ export default function ExcelToolsPage() {
   }, [dedupFilePreview, dedupCols, keepStrategy, dedupSortCol, dedupSortDir]);
 
   // State for Merge
-  const [mergeFiles, setMergeFiles] = useState<File[]>([]);
-  const [addSourceCol, setAddSourceCol] = useState<boolean>(true);
-  const [mergeJobResult, setMergeJobResult] = useState<any>(null);
+  const [mergeFiles, setMergeFiles] = useExcelStoreState("mergeFiles");
+  const [addSourceCol, setAddSourceCol] = useExcelStoreState("addSourceCol");
+  const [mergeJobResult, setMergeJobResult] = useExcelStoreState("mergeJobResult");
 
   // State for Split
-  const [splitFile, setSplitFile] = useState<File | null>(null);
-  const [splitMode, setSplitMode] = useState<"rows" | "column">("rows");
-  const [maxRows, setMaxRows] = useState<number>(10000);
-  const [splitCol, setSplitCol] = useState<string>("");
-  const [splitJobResult, setSplitJobResult] = useState<any>(null);
+  const [splitFile, setSplitFile] = useExcelStoreState("splitFile");
+  const [splitMode, setSplitMode] = useExcelStoreState("splitMode");
+  const [maxRows, setMaxRows] = useExcelStoreState("maxRows");
+  const [splitCol, setSplitCol] = useExcelStoreState("splitCol");
+  const [splitJobResult, setSplitJobResult] = useExcelStoreState("splitJobResult");
 
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useExcelStoreState("isProcessing");
+  const [message, setMessage] = useExcelStoreState("message");
 
   // Handlers for File Selection & Auto Inspection
   const handleFile1Select = async (f: File | null) => {
     setFile1(f);
+    if (f) setFile1Name(f.name);
     if (!f) {
       setFile1Preview(null);
       setKeyCols1("");
@@ -566,6 +786,7 @@ export default function ExcelToolsPage() {
 
   const handleFile2Select = async (f: File | null) => {
     setFile2(f);
+    if (f) setFile2Name(f.name);
     if (!f) {
       setFile2Preview(null);
       setKeyCols2("");
@@ -591,6 +812,7 @@ export default function ExcelToolsPage() {
 
   const handleDedupFileSelect = async (f: File | null) => {
     setDedupFile(f);
+    if (f) setDedupFileName(f.name);
     if (!f) {
       setDedupFilePreview(null);
       return;
@@ -610,8 +832,8 @@ export default function ExcelToolsPage() {
   };
 
   const handleCompare = async () => {
-    if (!file1 || !file2) {
-      setMessage("Silakan upload kedua file Excel (File 1 & File 2) terlebih dahulu.");
+    if (!file1Name || !file2Name) {
+      setMessage("Silakan upload kedua file Excel (atau pilih dari riwayat).");
       return;
     }
 
@@ -627,10 +849,34 @@ export default function ExcelToolsPage() {
     setIsProcessing(true);
     setMessage(null);
     try {
-      await ExcelAPI.upload([file1, file2]);
+      const filesToUpload = [file1, file2].filter(Boolean) as File[];
+      if (filesToUpload.length > 0) {
+        const uploadRes = await ExcelAPI.upload(filesToUpload);
+        
+        // Save to File History
+        if (uploadRes.files) {
+          for (const up of uploadRes.files) {
+            if (up.cloudinary_url) {
+              const preview = up.filename === file1?.name ? file1Preview : file2Preview;
+              if (preview) {
+                try {
+                  await FileHistoryAPI.save({
+                    file_name: up.filename,
+                    file_url: up.cloudinary_url,
+                    columns: preview.columns,
+                    total_rows: preview.total_rows
+                  });
+                } catch (e) {
+                  console.warn("Failed to save history for", up.filename, e);
+                }
+              }
+            }
+          }
+        }
+      }
       const res = await ExcelAPI.compare({
-        file1_name: file1.name,
-        file2_name: file2.name,
+        file1_name: file1Name,
+        file2_name: file2Name,
         key_columns_file1: keyCols1.split(",").map((s) => s.trim()).filter(Boolean),
         key_columns_file2: (keyCols2.trim() || keyCols1.trim()).split(",").map((s) => s.trim()).filter(Boolean),
         match_mode: matchMode,
@@ -647,16 +893,32 @@ export default function ExcelToolsPage() {
   };
 
   const handleDedup = async () => {
-    if (!dedupFile) {
-      setMessage("Silakan upload file Excel terlebih dahulu.");
+    if (!dedupFileName) {
+      setMessage("Silakan upload file Excel (atau pilih dari riwayat).");
       return;
     }
     setIsProcessing(true);
     setMessage(null);
     try {
-      await ExcelAPI.upload([dedupFile]);
+      if (dedupFile) {
+        const uploadRes = await ExcelAPI.upload([dedupFile]);
+        
+        // Save to File History
+        if (uploadRes.files && uploadRes.files[0]?.cloudinary_url && dedupFilePreview) {
+          try {
+            await FileHistoryAPI.save({
+              file_name: uploadRes.files[0].filename,
+              file_url: uploadRes.files[0].cloudinary_url,
+              columns: dedupFilePreview.columns,
+              total_rows: dedupFilePreview.total_rows
+            });
+          } catch (e) {
+            console.warn("Failed to save dedup history", e);
+          }
+        }
+      }
       const res = await ExcelAPI.deduplicate({
-        file_name: dedupFile.name,
+        file_name: dedupFileName,
         target_columns: dedupCols.split(",").map((s) => s.trim()),
         keep_strategy: keepStrategy,
         sort_column: dedupSortCol.trim() || null,
@@ -868,11 +1130,24 @@ export default function ExcelToolsPage() {
                 </span>
               )}
             </div>
-            <FileUploader
-              label="Upload File Excel 1 (Master)"
-              multiple={false}
-              onFilesSelected={(files) => handleFile1Select(files[0] || null)}
-            />
+            <div className="flex flex-col gap-2">
+              <FileUploader
+                label="Upload File Excel 1 (Master)"
+                multiple={false}
+                onFilesSelected={(files) => handleFile1Select(files[0] || null)}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveHistoryTarget("file1");
+                  fetchHistory();
+                  setShowHistoryModal(true);
+                }}
+                className="w-full py-2 flex justify-center items-center gap-2 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 rounded-md text-xs font-medium hover:bg-cyan-500/10 transition-colors"
+              >
+                <History className="w-4 h-4" /> Pilih dari Riwayat File
+              </button>
+            </div>
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-medium text-muted-foreground">
@@ -954,11 +1229,24 @@ export default function ExcelToolsPage() {
                 </span>
               )}
             </div>
-            <FileUploader
-              label="Upload File Excel 2 (Pembanding)"
-              multiple={false}
-              onFilesSelected={(files) => handleFile2Select(files[0] || null)}
-            />
+            <div className="flex flex-col gap-2">
+              <FileUploader
+                label="Upload File Excel 2 (Pembanding)"
+                multiple={false}
+                onFilesSelected={(files) => handleFile2Select(files[0] || null)}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveHistoryTarget("file2");
+                  fetchHistory();
+                  setShowHistoryModal(true);
+                }}
+                className="w-full py-2 flex justify-center items-center gap-2 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 rounded-md text-xs font-medium hover:bg-cyan-500/10 transition-colors"
+              >
+                <History className="w-4 h-4" /> Pilih dari Riwayat File
+              </button>
+            </div>
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-semibold text-slate-900 dark:text-slate-100">
@@ -1339,14 +1627,14 @@ export default function ExcelToolsPage() {
               {/* Filter Only Selected Key Columns Toggle */}
               <button
                 onClick={() => setShowOnlyKeyColumns(!showOnlyKeyColumns)}
-                title={showOnlyKeyColumns ? "Tampilkan Semua Kolom Excel" : "Filter Hanya Tampilkan Kolom Kunci Terpilih"}
-                className={`px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 border ${showOnlyKeyColumns
-                    ? "bg-purple-600 text-white border-purple-400 font-bold shadow-md ring-2 ring-purple-400/30 animate-pulse"
-                    : "bg-muted text-muted-foreground border-border hover:text-foreground"
+                title={showOnlyKeyColumns ? "Tampilkan Semua Kolom Excel" : "Sinkronkan & Tampilkan Hanya Kolom Kunci Terpilih"}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-2 border shadow-sm ${showOnlyKeyColumns
+                    ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary/30"
+                    : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
                   }`}
               >
-                <Filter className="w-3.5 h-3.5" />
-                {showOnlyKeyColumns ? "Hanya Kolom Kunci (Aktif)" : "Semua Kolom"}
+                <Filter className="w-4 h-4" />
+                {showOnlyKeyColumns ? "Sinkron: Menyala (Hanya Kunci)" : "Sinkron: Semua Kolom"}
               </button>
 
               {/* Layout Mode Switcher */}
@@ -1402,6 +1690,15 @@ export default function ExcelToolsPage() {
                     <div className="flex items-center gap-2">
                       {file1Preview && (
                         <>
+                          {file1History.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleUndo(1)}
+                              className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 text-[10px] font-mono font-bold border border-amber-500/30 transition-all flex items-center gap-1"
+                            >
+                              <Undo2 className="w-3 h-3" /> Undo
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleSaveToFile(1)}
@@ -1436,7 +1733,7 @@ export default function ExcelToolsPage() {
                       <RefreshCw className="w-7 h-7 animate-spin text-emerald-400" />
                       <span className="font-semibold text-emerald-300">Membaca data File 1...</span>
                     </div>
-                  ) : file1Preview && file1Preview.columns.length > 0 ? (
+                  ) : file1Preview && file1Preview.columns?.length > 0 ? (
                     (() => {
                       const normalizedKeyCols1 = new Set(Array.from(selectedKeyCols1Set).map(s => s.toLowerCase()));
                       const visibleCols1 = showOnlyKeyColumns && normalizedKeyCols1.size > 0
@@ -1480,23 +1777,24 @@ export default function ExcelToolsPage() {
                                   return (
                                     <th
                                       key={idx}
-                                      onDoubleClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditingColumn({ fileNum: 1, colIdx: idx });
-                                        setEditingColumnValue(col);
-                                      }}
-                                      onClick={() => handleSortColumn(1, col)}
-                                      title="Klik 2x untuk ubah nama kolom | Klik 1x untuk urutkan"
-                                      className={`p-2.5 border-r border-emerald-500/30 truncate min-w-[140px] max-w-[220px] tracking-wide text-xs cursor-pointer hover:bg-emerald-900/60 select-none transition-all ${isSorted ? "bg-emerald-900/90 text-amber-300" : ""
-                                        }`}
+                                      className={`p-2.5 border-r border-emerald-500/30 truncate min-w-[140px] max-w-[220px] tracking-wide text-xs select-none transition-all group ${isSorted ? "bg-emerald-900/90" : "hover:bg-emerald-900/40"}`}
                                     >
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span>{col}</span>
-                                        {isSorted ? (
-                                          sortDir1 === "asc" ? <SortAsc className="w-3.5 h-3.5 text-amber-300 shrink-0" /> : <SortDesc className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                                        ) : (
-                                          <ArrowUpDown className="w-3 h-3 text-emerald-500/40 opacity-60 shrink-0" />
-                                        )}
+                                      <div className="flex items-center justify-between gap-1 relative">
+                                        <span 
+                                          onDoubleClick={(e) => { e.stopPropagation(); setEditingColumn({ fileNum: 1, colIdx: idx }); setEditingColumnValue(col); }} 
+                                          className={`flex-1 truncate cursor-pointer hover:underline ${isSorted ? "text-amber-300" : ""}`}
+                                          title="Klik 2x untuk ubah nama kolom"
+                                        >
+                                          {col}
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0 bg-emerald-950/90 px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button onClick={() => handleSortColumn(1, col)} className={`p-0.5 hover:bg-emerald-500/20 rounded transition-colors ${isSorted ? "text-amber-300" : "text-emerald-500/60 hover:text-emerald-300"}`} title="Urutkan">
+                                            {isSorted ? (sortDir1 === "asc" ? <SortAsc className="w-3 h-3" /> : <SortDesc className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3" />}
+                                          </button>
+                                          <button onClick={(e) => { e.stopPropagation(); handleDeleteColumn(1, col); }} className="p-0.5 hover:bg-rose-500/20 text-rose-500/70 hover:text-rose-400 rounded transition-colors" title={`Hapus kolom ${col}`}>
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
                                       </div>
                                     </th>
                                   );
@@ -1504,9 +1802,18 @@ export default function ExcelToolsPage() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border font-mono text-[11px]">
-                              {filteredPreviewData1.map((row, rIdx) => (
+                              {filteredPreviewData1.slice(0, previewLimit1).map((row, rIdx) => (
                                 <tr key={rIdx} className="hover:bg-emerald-500/10 transition-all">
-                                  <td className="p-2 border-r border-border text-muted-foreground text-[10px]">{rIdx + 1}</td>
+                                  <td className="p-2 border-r border-border text-muted-foreground text-[10px] relative group w-12 text-center align-middle">
+                                    <span className="group-hover:hidden">{rIdx + 1}</span>
+                                    <button 
+                                      onClick={() => handleDeleteRow(1, row)}
+                                      className="hidden group-hover:flex absolute inset-0 items-center justify-center bg-rose-500/20 text-rose-400 hover:bg-rose-500/40 w-full h-full transition-colors"
+                                      title={`Hapus baris ${rIdx + 1}`}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
                                   {visibleCols1.map((col, cIdx) => {
                                     const rawVal = String(row[col] ?? "").trim();
                                     const lowerVal = rawVal.toLowerCase();
@@ -1565,6 +1872,17 @@ export default function ExcelToolsPage() {
                               ))}
                             </tbody>
                           </table>
+                          {filteredPreviewData1.length > previewLimit1 && (
+                            <div className="text-center p-2 text-[10px] text-muted-foreground bg-emerald-500/5 italic border-t border-emerald-500/20 flex items-center justify-between">
+                              <span>Menampilkan {previewLimit1} baris pertama dari {filteredPreviewData1.length} baris hasil filter...</span>
+                              <button 
+                                onClick={() => setPreviewLimit1(prev => prev + 50)}
+                                className="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded font-semibold transition-colors"
+                              >
+                                Muat Lebih Banyak (+50)
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })()
@@ -1587,6 +1905,15 @@ export default function ExcelToolsPage() {
                     <div className="flex items-center gap-2">
                       {file2Preview && (
                         <>
+                          {file2History.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleUndo(2)}
+                              className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 text-[10px] font-mono font-bold border border-amber-500/30 transition-all flex items-center gap-1"
+                            >
+                              <Undo2 className="w-3 h-3" /> Undo
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleSaveToFile(2)}
@@ -1621,7 +1948,7 @@ export default function ExcelToolsPage() {
                       <RefreshCw className="w-7 h-7 animate-spin text-sky-400" />
                       <span className="font-semibold text-sky-300">Membaca data File 2...</span>
                     </div>
-                  ) : file2Preview && file2Preview.columns.length > 0 ? (
+                  ) : file2Preview && file2Preview.columns?.length > 0 ? (
                     (() => {
                       const normalizedKeyCols2 = new Set(Array.from(selectedKeyCols2Set).map(s => s.toLowerCase()));
                       const visibleCols2 = showOnlyKeyColumns && normalizedKeyCols2.size > 0
@@ -1665,23 +1992,24 @@ export default function ExcelToolsPage() {
                                   return (
                                     <th
                                       key={idx}
-                                      onDoubleClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditingColumn({ fileNum: 2, colIdx: idx });
-                                        setEditingColumnValue(col);
-                                      }}
-                                      onClick={() => handleSortColumn(2, col)}
-                                      title="Klik 2x untuk ubah nama kolom | Klik 1x untuk urutkan"
-                                      className={`p-2.5 border-r border-sky-500/30 truncate min-w-[140px] max-w-[220px] tracking-wide text-xs cursor-pointer hover:bg-sky-900/60 select-none transition-all ${isSorted ? "bg-sky-900/90 text-amber-300" : ""
-                                        }`}
+                                      className={`p-2.5 border-r border-sky-500/30 truncate min-w-[140px] max-w-[220px] tracking-wide text-xs select-none transition-all group ${isSorted ? "bg-sky-900/90" : "hover:bg-sky-900/40"}`}
                                     >
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span>{col}</span>
-                                        {isSorted ? (
-                                          sortDir2 === "asc" ? <SortAsc className="w-3.5 h-3.5 text-amber-300 shrink-0" /> : <SortDesc className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                                        ) : (
-                                          <ArrowUpDown className="w-3 h-3 text-sky-500/40 opacity-60 shrink-0" />
-                                        )}
+                                      <div className="flex items-center justify-between gap-1 relative">
+                                        <span 
+                                          onDoubleClick={(e) => { e.stopPropagation(); setEditingColumn({ fileNum: 2, colIdx: idx }); setEditingColumnValue(col); }} 
+                                          className={`flex-1 truncate cursor-pointer hover:underline ${isSorted ? "text-amber-300" : ""}`}
+                                          title="Klik 2x untuk ubah nama kolom"
+                                        >
+                                          {col}
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0 bg-sky-950/90 px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button onClick={() => handleSortColumn(2, col)} className={`p-0.5 hover:bg-sky-500/20 rounded transition-colors ${isSorted ? "text-amber-300" : "text-sky-500/60 hover:text-sky-300"}`} title="Urutkan">
+                                            {isSorted ? (sortDir2 === "asc" ? <SortAsc className="w-3 h-3" /> : <SortDesc className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3" />}
+                                          </button>
+                                          <button onClick={(e) => { e.stopPropagation(); handleDeleteColumn(2, col); }} className="p-0.5 hover:bg-rose-500/20 text-rose-500/70 hover:text-rose-400 rounded transition-colors" title={`Hapus kolom ${col}`}>
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
                                       </div>
                                     </th>
                                   );
@@ -1689,9 +2017,18 @@ export default function ExcelToolsPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border font-mono text-[11px]">
-                            {filteredPreviewData2.map((row, rIdx) => (
+                            {filteredPreviewData2.slice(0, previewLimit2).map((row, rIdx) => (
                               <tr key={rIdx} className="hover:bg-sky-500/10 transition-all">
-                                <td className="p-2 border-r border-border text-muted-foreground text-[10px]">{rIdx + 1}</td>
+                                <td className="p-2 border-r border-border text-muted-foreground text-[10px] relative group w-12 text-center align-middle">
+                                    <span className="group-hover:hidden">{rIdx + 1}</span>
+                                    <button 
+                                      onClick={() => handleDeleteRow(2, row)}
+                                      className="hidden group-hover:flex absolute inset-0 items-center justify-center bg-rose-500/20 text-rose-400 hover:bg-rose-500/40 w-full h-full transition-colors"
+                                      title={`Hapus baris ${rIdx + 1}`}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
                                 {visibleCols2.map((col, cIdx) => {
                                   const rawVal = String(row[col] ?? "").trim();
                                   const lowerVal = rawVal.toLowerCase();
@@ -1750,6 +2087,17 @@ export default function ExcelToolsPage() {
                             ))}
                           </tbody>
                         </table>
+                        {filteredPreviewData2.length > previewLimit2 && (
+                          <div className="text-center p-2 text-[10px] text-muted-foreground bg-sky-500/5 italic border-t border-sky-500/20 flex items-center justify-between">
+                            <span>Menampilkan {previewLimit2} baris pertama dari {filteredPreviewData2.length} baris hasil filter...</span>
+                            <button 
+                              onClick={() => setPreviewLimit2(prev => prev + 50)}
+                              className="px-3 py-1 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 rounded font-semibold transition-colors"
+                            >
+                              Muat Lebih Banyak (+50)
+                            </button>
+                          </div>
+                        )}
                       </div>
                       );
                       })()
@@ -1795,7 +2143,7 @@ export default function ExcelToolsPage() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border font-mono">
-                                {file1Preview.preview_data.map((row, rIdx) => (
+                                {file1Preview.preview_data.slice(0, 50).map((row, rIdx) => (
                                   <tr key={rIdx} className="hover:bg-emerald-500/5">
                                     <td className="p-2.5 border-r border-border text-muted-foreground">{rIdx + 1}</td>
                                     {file1Preview.columns.map((col, cIdx) => {
@@ -1849,7 +2197,7 @@ export default function ExcelToolsPage() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border font-mono">
-                                {file2Preview.preview_data.map((row, rIdx) => (
+                                {file2Preview.preview_data.slice(0, 50).map((row, rIdx) => (
                                   <tr key={rIdx} className="hover:bg-sky-500/5">
                                     <td className="p-2.5 border-r border-border text-muted-foreground">{rIdx + 1}</td>
                                     {file2Preview.columns.map((col, cIdx) => {
@@ -1898,23 +2246,85 @@ export default function ExcelToolsPage() {
             <>
             <div className="max-w-2xl mx-auto p-6 rounded-xl border border-border bg-card space-y-5 shadow-sm">
               <h2 className="text-sm font-semibold text-foreground">Remove Duplicate Baris Excel</h2>
-              <FileUploader
-                label="Upload file Excel/CSV untuk dibersihkan"
-                multiple={false}
-                onFilesSelected={(files) => handleDedupFileSelect(files[0] || null)}
-              />
+              <div className="flex flex-col gap-2">
+                <FileUploader
+                  label="Upload file Excel/CSV untuk dibersihkan"
+                  multiple={false}
+                  onFilesSelected={(files) => handleDedupFileSelect(files[0] || null)}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveHistoryTarget("dedup");
+                    fetchHistory();
+                    setShowHistoryModal(true);
+                  }}
+                  className="w-full py-2 flex justify-center items-center gap-2 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 rounded-md text-xs font-medium hover:bg-cyan-500/10 transition-colors"
+                >
+                  <History className="w-4 h-4" /> Pilih dari Riwayat File
+                </button>
+              </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">
-                  Kolom Acuan Duplikat (koma untuk multi-kolom):
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Kolom Acuan Duplikat (koma untuk multi-kolom):
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {dedupFilePreview?.columns && dedupFilePreview.columns.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setDedupCols(dedupFilePreview.columns.join(", "))}
+                          className="text-[10px] text-emerald-400 hover:underline font-mono"
+                        >
+                          Pilih Semua
+                        </button>
+                        <span className="text-muted-foreground text-[10px]">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setDedupCols("")}
+                          className="text-[10px] text-rose-400 hover:underline font-mono"
+                        >
+                          Hapus Semua
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
                 <input
                   type="text"
                   value={dedupCols}
                   onChange={(e) => setDedupCols(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
+                  className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary font-mono"
                   placeholder="misal: Email, NoHP"
                 />
+                {dedupFilePreview?.columns && dedupFilePreview.columns.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2 max-h-40 overflow-y-auto p-2 border border-slate-700/60 dark:border-slate-700 rounded-lg bg-slate-900/60 dark:bg-slate-950/80 shadow-inner">
+                    {dedupFilePreview.columns.map((col: string, idx: number) => {
+                      const isSelected = selectedDedupColsSet.has(col);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setDedupCols(Array.from(selectedDedupColsSet).filter((c) => c !== col).join(", "));
+                            } else {
+                              setDedupCols([...Array.from(selectedDedupColsSet), col].join(", "));
+                            }
+                          }}
+                          className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm ${isSelected
+                              ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
+                              : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
+                            }`}
+                        >
+                          {isSelected ? "✓ " : "+ "}{col}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -2033,6 +2443,7 @@ export default function ExcelToolsPage() {
                           const q = dedupSearchQuery.toLowerCase();
                           return Object.values(row).some(v => String(v).toLowerCase().includes(q));
                         })
+                        .slice(0, previewLimitDedup)
                         .map((row: any, rIdx: number) => {
                         const isRemoved = row.__dedup_status === "removed";
                         return (
@@ -2062,6 +2473,17 @@ export default function ExcelToolsPage() {
                       })}
                     </tbody>
                   </table>
+                  {processedDedupData.rows.length > previewLimitDedup && (
+                    <div className="text-center p-2 text-[10px] text-muted-foreground bg-amber-500/5 italic border-t border-amber-500/20 flex items-center justify-between">
+                      <span>Menampilkan {previewLimitDedup} baris pertama dari total {processedDedupData.rows.length} baris...</span>
+                      <button 
+                        onClick={() => setPreviewLimitDedup(prev => prev + 50)}
+                        className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded font-semibold transition-colors"
+                      >
+                        Muat Lebih Banyak (+50)
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}
@@ -2159,6 +2581,52 @@ export default function ExcelToolsPage() {
               </button>
             </div>
           )}
+      {/* File History Modal */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card w-full max-w-3xl rounded-xl border border-border shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-border flex justify-between items-center bg-muted/30">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <History className="w-5 h-5 text-cyan-400" /> Riwayat File Excel
+              </h2>
+              <button onClick={() => setShowHistoryModal(false)} className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto flex-1">
+              {isLoadingHistory ? (
+                <div className="flex justify-center p-8"><RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              ) : historyList.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground italic text-sm">Belum ada riwayat file yang diunggah.</div>
+              ) : (
+                <div className="space-y-3">
+                  {historyList.map(hist => (
+                    <div key={hist.id} className="p-3 border border-border rounded-lg bg-background hover:border-cyan-500/50 transition-colors flex items-center justify-between group">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <div className="font-medium text-sm text-foreground truncate">{hist.file_name}</div>
+                        <div className="text-xs text-muted-foreground mt-1 flex gap-3">
+                          <span>{hist.total_rows} baris</span>
+                          <span>{hist.columns?.length || 0} kolom</span>
+                          <span>{new Date(hist.created_at * 1000).toLocaleString('id-ID')}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleSelectHistory(hist)} className="px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded text-xs font-medium transition-colors">
+                          Gunakan File
+                        </button>
+                        <button onClick={() => handleDeleteHistory(hist.id)} className="p-1.5 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 rounded transition-colors" title="Hapus Riwayat">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+      )}
+      </div>
       );
 }

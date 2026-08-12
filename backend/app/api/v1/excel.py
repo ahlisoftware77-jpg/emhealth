@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Any
@@ -9,6 +10,8 @@ from app.services.job_queue_service import job_queue_service
 from app.models.schemas import CompareRequest, RemoveDuplicateRequest, MergeRequest, SplitRequest
 from app.core.security import get_current_user
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/excel", tags=["Excel Tools"])
 
 @router.post("/upload")
@@ -17,10 +20,20 @@ async def upload_excel_files(files: List[UploadFile] = File(...), user: Dict[str
     for f in files:
         content = await f.read()
         saved_path = storage_manager.save_local_file(content, f.filename, settings.UPLOAD_DIR)
+        
+        # Try uploading to cloudinary if configured
+        cloudinary_url = None
+        if settings.PRIMARY_STORAGE_ENGINE == "cloudinary":
+            try:
+                cloudinary_url = storage_manager.upload_to_cloudinary_unsigned(str(saved_path))
+            except Exception as e:
+                logger.warning(f"Failed to upload {f.filename} to Cloudinary: {e}")
+                
         uploaded_info.append({
             "filename": f.filename,
             "path": str(saved_path),
-            "size": len(content)
+            "size": len(content),
+            "cloudinary_url": cloudinary_url
         })
     return {"status": "success", "files": uploaded_info}
 
@@ -40,13 +53,51 @@ async def inspect_excel(filename: str, user: Dict[str, Any] = Depends(get_curren
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+import requests
+import uuid
+
+@router.post("/preview-url")
+async def preview_from_url(url: str, user: Dict[str, Any] = Depends(get_current_user)):
+    try:
+        # Download file to a temporary name
+        temp_filename = f"temp_preview_{uuid.uuid4().hex[:8]}.xlsx"
+        path = settings.UPLOAD_DIR / temp_filename
+        
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        
+        with open(path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                
+        data = await run_in_threadpool(ExcelService.get_columns_and_preview, path)
+        
+        # Cleanup temp file
+        if path.exists():
+            path.unlink()
+            
+        return {"status": "success", "data": data}
+    except Exception as e:
+        logger.error(f"Failed to preview from URL {url}: {e}")
+        raise HTTPException(status_code=400, detail=f"Gagal memuat file dari URL: {str(e)}")
+
 class SavePreviewRequest(BaseModel):
     filename: str
     rows_data: List[Dict[str, Any]]
+    url: str = None
 
 @router.post("/save-preview")
 async def save_preview_changes(req: SavePreviewRequest, user: Dict[str, Any] = Depends(get_current_user)):
     path = settings.UPLOAD_DIR / req.filename
+    
+    if req.url:
+        try:
+            import urllib.request
+            path.parent.mkdir(parents=True, exist_ok=True)
+            urllib.request.urlretrieve(req.url, str(path))
+        except Exception as e:
+            logger.error(f"Failed to download remote file for saving preview: {e}")
+
     if not path.exists():
         path = settings.OUTPUT_DIR / req.filename
     if not path.exists():
@@ -62,8 +113,15 @@ async def save_preview_changes(req: SavePreviewRequest, user: Dict[str, Any] = D
 async def inspect_uploaded_file(file: UploadFile = File(...), user: Dict[str, Any] = Depends(get_current_user)):
     try:
         content = await file.read()
-        # Baca langsung dari memory — tidak menyimpan ke disk.
-        # Ini penting agar bisa berjalan di Vercel (filesystem read-only).
+        
+        # Simpan file ke UPLOAD_DIR agar bisa ditemukan saat save-preview
+        path = settings.UPLOAD_DIR / file.filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(content)
+
+        # Baca preview dari memory
+
         data = await run_in_threadpool(
             ExcelService.get_columns_and_preview_from_bytes,
             content,

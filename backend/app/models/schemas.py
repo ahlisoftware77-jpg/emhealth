@@ -114,3 +114,11 @@ class JobResponse(BaseModel):
     download_filename: Optional[str] = None
     created_at: float
     updated_at: float
+
+class FileHistorySchema(BaseModel):
+    id: Optional[str] = None
+    file_name: str
+    file_url: str
+    columns: List[str]
+    total_rows: int
+    created_at: Optional[float] = None

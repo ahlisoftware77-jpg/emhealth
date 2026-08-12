@@ -84,8 +84,12 @@ export const ExcelAPI = {
     });
     return res.data;
   },
-  savePreview: async (filename: string, rows_data: any[]) => {
-    const res = await apiClient.post("/excel/save-preview", { filename, rows_data });
+  savePreview: async (filename: string, rows_data: any[], url?: string) => {
+    const res = await apiClient.post("/excel/save-preview", { filename, rows_data, url });
+    return res.data;
+  },
+  previewUrl: async (url: string) => {
+    const res = await apiClient.post(`/excel/preview-url?url=${encodeURIComponent(url)}`);
     return res.data;
   },
   compare: async (payload: any) => {
@@ -250,6 +254,21 @@ export const SettingsAPI = {
     const res = await apiClient.put("/settings", settings);
     return res.data;
   },
+};
+
+export const FileHistoryAPI = {
+  list: async () => {
+    const res = await apiClient.get("/file-history");
+    return res.data;
+  },
+  save: async (payload: { file_name: string; file_url: string; columns: string[]; total_rows: number }) => {
+    const res = await apiClient.post("/file-history", payload);
+    return res.data;
+  },
+  delete: async (historyId: string) => {
+    const res = await apiClient.delete(`/file-history/${historyId}`);
+    return res.data;
+  }
 };
 
 export const StatsAPI = {
