@@ -151,6 +151,36 @@ export default function ExcelToolsPage() {
   const tableContainer1Ref = useRef<HTMLDivElement | null>(null);
   const tableContainer2Ref = useRef<HTMLDivElement | null>(null);
   const isSyncingScrollRef = useRef<boolean>(false);
+  const draggedCol1Ref = useRef<string | null>(null);
+  const draggedCol2Ref = useRef<string | null>(null);
+
+  const handleColumnReorder = (fileNum: 1 | 2, targetCol: string) => {
+    const draggedCol = fileNum === 1 ? draggedCol1Ref.current : draggedCol2Ref.current;
+    if (!draggedCol || draggedCol === targetCol) return;
+
+    if (fileNum === 1 && file1Preview) {
+        const newCols = [...file1Preview.columns];
+        const dragIdx = newCols.indexOf(draggedCol);
+        const targetIdx = newCols.indexOf(targetCol);
+        if (dragIdx !== -1 && targetIdx !== -1) {
+            newCols.splice(dragIdx, 1);
+            newCols.splice(targetIdx, 0, draggedCol);
+            setFile1Preview({ ...file1Preview, columns: newCols });
+            setHasUnsavedChanges1(true);
+        }
+    } else if (fileNum === 2 && file2Preview) {
+        const newCols = [...file2Preview.columns];
+        const dragIdx = newCols.indexOf(draggedCol);
+        const targetIdx = newCols.indexOf(targetCol);
+        if (dragIdx !== -1 && targetIdx !== -1) {
+            newCols.splice(dragIdx, 1);
+            newCols.splice(targetIdx, 0, draggedCol);
+            setFile2Preview({ ...file2Preview, columns: newCols });
+            setHasUnsavedChanges2(true);
+        }
+    }
+  };
+
   const gridWrapperRef = useRef<HTMLDivElement | null>(null);
   const [arrowPaths, setArrowPaths] = useState<{ x1: number; y1: number; x2: number; y2: number }[]>([]);
 
