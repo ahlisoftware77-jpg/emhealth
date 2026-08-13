@@ -332,6 +332,11 @@ export default function ExcelToolsPage() {
   const [hasUnsavedChanges1, setHasUnsavedChanges1] = useExcelStoreState("hasUnsavedChanges1");
   const [hasUnsavedChanges2, setHasUnsavedChanges2] = useExcelStoreState("hasUnsavedChanges2");
 
+  const [bulkDeleteMode1, setBulkDeleteMode1] = useState(false);
+  const [colsToDelete1, setColsToDelete1] = useState<Set<string>>(new Set());
+  const [bulkDeleteMode2, setBulkDeleteMode2] = useState(false);
+  const [colsToDelete2, setColsToDelete2] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges1 || hasUnsavedChanges2) {
@@ -648,6 +653,46 @@ export default function ExcelToolsPage() {
         setFile2Preview({ ...file2Preview, preview_data: newPreviewData, total_rows: file2Preview.total_rows - 1 });
         setHasUnsavedChanges2(true);
       }
+    }
+  };
+
+  const handleBulkDeleteColumn = (fileNum: 1 | 2) => {
+    if (fileNum === 1 && colsToDelete1.size > 0 && file1Preview) {
+      if (!confirm(`Apakah Anda yakin ingin menghapus ${colsToDelete1.size} kolom terpilih secara permanen dari File 1?`)) return;
+      saveHistory(1);
+      const newColumns = file1Preview.columns.filter((c: any) => !colsToDelete1.has(c));
+      const newPreviewData = file1Preview.preview_data.map((row: any) => {
+        const newRow = { ...row };
+        colsToDelete1.forEach(col => delete newRow[col]);
+        return newRow;
+      });
+      setFile1Preview({ ...file1Preview, columns: newColumns, preview_data: newPreviewData });
+      
+      const updatedKeyCols = Array.from(selectedKeyCols1Set).filter(c => !colsToDelete1.has(c as string)).join(", ");
+      if (updatedKeyCols !== keyCols1) setKeyCols1(updatedKeyCols);
+      
+      setHasUnsavedChanges1(true);
+      setColsToDelete1(new Set());
+      setBulkDeleteMode1(false);
+      setMessage(`${colsToDelete1.size} kolom berhasil dihapus dari File 1.`);
+    } else if (fileNum === 2 && colsToDelete2.size > 0 && file2Preview) {
+      if (!confirm(`Apakah Anda yakin ingin menghapus ${colsToDelete2.size} kolom terpilih secara permanen dari File 2?`)) return;
+      saveHistory(2);
+      const newColumns = file2Preview.columns.filter((c: any) => !colsToDelete2.has(c));
+      const newPreviewData = file2Preview.preview_data.map((row: any) => {
+        const newRow = { ...row };
+        colsToDelete2.forEach(col => delete newRow[col]);
+        return newRow;
+      });
+      setFile2Preview({ ...file2Preview, columns: newColumns, preview_data: newPreviewData });
+      
+      const updatedKeyCols = Array.from(selectedKeyCols2Set).filter(c => !colsToDelete2.has(c as string)).join(", ");
+      if (updatedKeyCols !== keyCols2) setKeyCols2(updatedKeyCols);
+      
+      setHasUnsavedChanges2(true);
+      setColsToDelete2(new Set());
+      setBulkDeleteMode2(false);
+      setMessage(`${colsToDelete2.size} kolom berhasil dihapus dari File 2.`);
     }
   };
 
@@ -1414,6 +1459,26 @@ export default function ExcelToolsPage() {
                       >
                         Hapus Semua
                       </button>
+                      <span className="text-muted-foreground text-[10px]">|</span>
+                      <button
+                        type="button"
+                        onClick={() => { setBulkDeleteMode1(!bulkDeleteMode1); setColsToDelete1(new Set()); }}
+                        className={`text-[10px] hover:underline font-mono ${bulkDeleteMode1 ? 'text-amber-400 font-bold' : 'text-slate-400'}`}
+                      >
+                        {bulkDeleteMode1 ? 'Batal Hapus Masal' : 'Hapus Masal'}
+                      </button>
+                      {bulkDeleteMode1 && colsToDelete1.size > 0 && (
+                        <>
+                          <span className="text-muted-foreground text-[10px]">|</span>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkDeleteColumn(1)}
+                            className="text-[10px] text-red-400 font-bold hover:underline font-mono"
+                          >
+                            Eksekusi Hapus ({colsToDelete1.size})
+                          </button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -1430,28 +1495,39 @@ export default function ExcelToolsPage() {
                   {file1Preview.columns.map((col: any, idx: any) => {
                     const hasMatch = file2Preview?.columns?.some((c: string) => c.toLowerCase() === col.toLowerCase());
                     const isSelected = selectedKeyCols1Set.has(col);
+                    const isMarkedForDeletion = colsToDelete1.has(col);
                     return (
-                      <div key={idx} className="relative group inline-flex shadow-sm rounded-md">
+                      <div key={idx} className={`relative group inline-flex shadow-sm rounded-md ${bulkDeleteMode1 ? 'animate-pulse ring-1 ring-amber-500/50' : ''}`}>
                         <button
                           type="button"
-                          draggable={true}
+                          draggable={!bulkDeleteMode1}
                           onDragStart={() => { draggedCol1Ref.current = col; }}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => handleColumnReorder(1, col)}
                           onClick={() => {
-                            if (isSelected) {
-                              setKeyCols1(Array.from(selectedKeyCols1Set).filter((c: any) => c !== col).join(", "));
+                            if (bulkDeleteMode1) {
+                              const newSet = new Set(colsToDelete1);
+                              if (newSet.has(col)) newSet.delete(col);
+                              else newSet.add(col);
+                              setColsToDelete1(newSet);
                             } else {
-                              setKeyCols1([...Array.from(selectedKeyCols1Set), col].join(", "));
+                              if (isSelected) {
+                                setKeyCols1(Array.from(selectedKeyCols1Set).filter((c: any) => c !== col).join(", "));
+                              } else {
+                                setKeyCols1([...Array.from(selectedKeyCols1Set), col].join(", "));
+                              }
                             }
                           }}
-                          className={`px-2.5 py-1 rounded-l-md text-xs font-mono transition-all border cursor-grab active:cursor-grabbing ${isSelected
-                              ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
-                              : (!hasMatch ? "bg-red-950/50 text-red-300 border-red-700/50 hover:bg-red-900/50 hover:text-red-200" : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white")
+                          className={`px-2.5 py-1 rounded-l-md text-xs font-mono transition-all border ${bulkDeleteMode1 ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${
+                            isMarkedForDeletion
+                              ? "bg-red-500 text-white font-bold border-red-400 ring-2 ring-red-400/40"
+                              : isSelected
+                                ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
+                                : (!hasMatch ? "bg-red-950/50 text-red-300 border-red-700/50 hover:bg-red-900/50 hover:text-red-200" : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white")
                             }`}
-                          title={!hasMatch ? "Kolom ini tidak ditemukan di File 2!" : ""}
+                          title={bulkDeleteMode1 ? "Pilih untuk dihapus" : (!hasMatch ? "Kolom ini tidak ditemukan di File 2!" : "")}
                         >
-                          {isSelected ? "✓ " : "+ "}{col}
+                          {isMarkedForDeletion ? "🗑 " : (isSelected ? "✓ " : "+ ")}{col}
                         </button>
                         <button
                           type="button"
@@ -1533,6 +1609,26 @@ export default function ExcelToolsPage() {
                       >
                         Hapus Semua
                       </button>
+                      <span className="text-muted-foreground text-[10px]">|</span>
+                      <button
+                        type="button"
+                        onClick={() => { setBulkDeleteMode2(!bulkDeleteMode2); setColsToDelete2(new Set()); }}
+                        className={`text-[10px] hover:underline font-mono ${bulkDeleteMode2 ? 'text-amber-400 font-bold' : 'text-slate-400'}`}
+                      >
+                        {bulkDeleteMode2 ? 'Batal Hapus Masal' : 'Hapus Masal'}
+                      </button>
+                      {bulkDeleteMode2 && colsToDelete2.size > 0 && (
+                        <>
+                          <span className="text-muted-foreground text-[10px]">|</span>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkDeleteColumn(2)}
+                            className="text-[10px] text-red-400 font-bold hover:underline font-mono"
+                          >
+                            Eksekusi Hapus ({colsToDelete2.size})
+                          </button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -1548,27 +1644,39 @@ export default function ExcelToolsPage() {
                 <div className="flex flex-wrap gap-1.5 mt-2 max-h-40 overflow-y-auto p-2 border border-slate-700/60 dark:border-slate-700 rounded-lg bg-slate-900/60 dark:bg-slate-950/80 shadow-inner">
                   {file2Preview.columns.map((col: any, idx: any) => {
                     const isSelected = selectedKeyCols2Set.has(col);
+                    const isMarkedForDeletion = colsToDelete2.has(col);
                     return (
-                      <div key={idx} className="relative group inline-flex shadow-sm rounded-md">
+                      <div key={idx} className={`relative group inline-flex shadow-sm rounded-md ${bulkDeleteMode2 ? 'animate-pulse ring-1 ring-amber-500/50' : ''}`}>
                         <button
                           type="button"
-                          draggable={true}
+                          draggable={!bulkDeleteMode2}
                           onDragStart={() => { draggedCol2Ref.current = col; }}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => handleColumnReorder(2, col)}
                           onClick={() => {
-                            if (isSelected) {
-                              setKeyCols2(Array.from(selectedKeyCols2Set).filter((c: any) => c !== col).join(", "));
+                            if (bulkDeleteMode2) {
+                              const newSet = new Set(colsToDelete2);
+                              if (newSet.has(col)) newSet.delete(col);
+                              else newSet.add(col);
+                              setColsToDelete2(newSet);
                             } else {
-                              setKeyCols2([...Array.from(selectedKeyCols2Set), col].join(", "));
+                              if (isSelected) {
+                                setKeyCols2(Array.from(selectedKeyCols2Set).filter((c: any) => c !== col).join(", "));
+                              } else {
+                                setKeyCols2([...Array.from(selectedKeyCols2Set), col].join(", "));
+                              }
                             }
                           }}
-                          className={`px-2.5 py-1 rounded-l-md text-xs font-mono transition-all border cursor-grab active:cursor-grabbing ${isSelected
-                            ? "bg-sky-400 text-slate-950 font-bold border-sky-300 ring-2 ring-sky-300/40"
-                            : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
-                          }`}
+                          className={`px-2.5 py-1 rounded-l-md text-xs font-mono transition-all border ${bulkDeleteMode2 ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${
+                            isMarkedForDeletion
+                              ? "bg-red-500 text-white font-bold border-red-400 ring-2 ring-red-400/40"
+                              : isSelected
+                                ? "bg-sky-400 text-slate-950 font-bold border-sky-300 ring-2 ring-sky-300/40"
+                                : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
+                            }`}
+                          title={bulkDeleteMode2 ? "Pilih untuk dihapus" : ""}
                         >
-                          {isSelected ? "✓ " : "+ "}{col}
+                          {isMarkedForDeletion ? "🗑 " : (isSelected ? "✓ " : "+ ")}{col}
                         </button>
                         <button
                           type="button"
