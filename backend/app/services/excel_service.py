@@ -40,7 +40,14 @@ class ExcelService:
                     df = pd.read_csv(bio, dtype=str).head(max_rows).fillna("")
                 columns = [str(c).strip() for c in df.columns.tolist()]
                 for row in df.head(max_rows).to_dict(orient="records"):
-                    clean_row = {str(k): "" if pd.isna(v) or v is None else str(v).strip() for k, v in row.items()}
+                    clean_row = {}
+                    for k, v in row.items():
+                        val_str = "" if pd.isna(v) or v is None else str(v).strip()
+                        if val_str.endswith(" 00:00:00"):
+                            val_str = val_str[:-9]
+                        if val_str.endswith(".0") and val_str[:-2].lstrip("-").isdigit():
+                            val_str = val_str[:-2]
+                        clean_row[str(k)] = val_str
                     records.append(clean_row)
             elif ext in [".xlsx", ".xls", ".xlsm", ".xlsb"]:
                 try:
@@ -65,6 +72,8 @@ class ExcelService:
                                         row_dict[col_name] = val.strftime("%Y-%m-%d")
                                     else:
                                         row_dict[col_name] = str(val).strip()
+                                elif isinstance(val, float) and val.is_integer():
+                                    row_dict[col_name] = str(int(val))
                                 else:
                                     row_dict[col_name] = str(val).strip()
                             records.append(row_dict)
@@ -82,6 +91,8 @@ class ExcelService:
                             val_str = "" if pd.isna(v) or v is None else str(v).strip()
                             if val_str.endswith(" 00:00:00"):
                                 val_str = val_str[:-9]
+                            if val_str.endswith(".0") and val_str[:-2].lstrip("-").isdigit():
+                                val_str = val_str[:-2]
                             clean_row[str(k)] = val_str
                         records.append(clean_row)
             else:
@@ -111,7 +122,14 @@ class ExcelService:
                     df = pd.read_csv(file_path, dtype=str).head(max_rows).fillna("")
                 columns = [str(c).strip() for c in df.columns.tolist()]
                 for row in df.head(max_rows).to_dict(orient="records"):
-                    clean_row = {str(k): "" if pd.isna(v) or v is None else str(v).strip() for k, v in row.items()}
+                    clean_row = {}
+                    for k, v in row.items():
+                        val_str = "" if pd.isna(v) or v is None else str(v).strip()
+                        if val_str.endswith(" 00:00:00"):
+                            val_str = val_str[:-9]
+                        if val_str.endswith(".0") and val_str[:-2].lstrip("-").isdigit():
+                            val_str = val_str[:-2]
+                        clean_row[str(k)] = val_str
                     records.append(clean_row)
             elif ext in [".xlsx", ".xls", ".xlsm", ".xlsb"]:
                 try:
@@ -136,6 +154,8 @@ class ExcelService:
                                         row_dict[col_name] = val.strftime("%Y-%m-%d")
                                     else:
                                         row_dict[col_name] = str(val).strip()
+                                elif isinstance(val, float) and val.is_integer():
+                                    row_dict[col_name] = str(int(val))
                                 else:
                                     row_dict[col_name] = str(val).strip()
                             records.append(row_dict)
@@ -152,6 +172,8 @@ class ExcelService:
                             val_str = "" if pd.isna(v) or v is None else str(v).strip()
                             if val_str.endswith(" 00:00:00"):
                                 val_str = val_str[:-9]
+                            if val_str.endswith(".0") and val_str[:-2].lstrip("-").isdigit():
+                                val_str = val_str[:-2]
                             clean_row[str(k)] = val_str
                         records.append(clean_row)
             else:
