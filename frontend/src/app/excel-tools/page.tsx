@@ -431,7 +431,7 @@ export default function ExcelToolsPage() {
       
       // Trigger download using showSaveFilePicker (Save As) if supported, else fallback to auto-download
       // Menggunakan API internal Next.js proxy agar 100% bebas dari isu CORS maupun IP berbeda
-      const downloadUrl = `/api/download?filename=${encodeURIComponent(targetFile.name)}`;
+      const downloadUrl = `/api/download?filename=${encodeURIComponent(targetFile.name)}&t=${Date.now()}`;
       
       try {
         if ('showSaveFilePicker' in window) {

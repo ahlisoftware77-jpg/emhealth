@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
     return new NextResponse(blob, {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${filename}"`
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "no-store, max-age=0"
       }
     });
 
