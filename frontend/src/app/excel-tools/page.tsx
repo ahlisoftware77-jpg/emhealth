@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useExcelStore, ExcelState } from "@/store/useExcelStore";
 
 function useExcelStoreState<K extends keyof ExcelState>(key: K): [ExcelState[K], (val: ExcelState[K] | ((prev: ExcelState[K]) => ExcelState[K])) => void] {
@@ -151,41 +151,13 @@ export default function ExcelToolsPage() {
   const tableContainer1Ref = useRef<HTMLDivElement | null>(null);
   const tableContainer2Ref = useRef<HTMLDivElement | null>(null);
   const isSyncingScrollRef = useRef<boolean>(false);
+  const gridWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [arrowPaths, setArrowPaths] = useState<{ x1: number; y1: number; x2: number; y2: number }[]>([]);
 
-  const scrollToMatch = (row1: any) => {
-    if (!filteredPreviewData2 || filteredPreviewData2.length === 0) return;
-    const activeCols1 = Array.from(selectedKeyCols1Set);
-    const activeCols2 = Array.from(selectedKeyCols2Set);
-    
-    const searchValues = new Set();
-    const colsToSearch = activeCols1.length > 0 ? activeCols1 : (file1Preview?.columns || []);
-    colsToSearch.forEach((c: any) => {
-        const v = String(row1[c] ?? "").trim().toLowerCase();
-        if (v) searchValues.add(v);
-    });
-
-    if (searchValues.size === 0) return;
-
-    for (let i = 0; i < filteredPreviewData2.length; i++) {
-        const row2 = filteredPreviewData2[i];
-        const cols2 = activeCols2.length > 0 ? activeCols2 : (file2Preview?.columns || []);
-        for (let c of cols2) {
-            const v2 = String(row2[c] ?? "").trim().toLowerCase();
-            if (v2 && searchValues.has(v2)) {
-                const el = document.getElementById(`file2-row-${i}`);
-                if (el) {
-                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  el.classList.add('bg-sky-500/40', 'ring-2', 'ring-sky-400');
-                  setTimeout(() => el.classList.remove('bg-sky-500/40', 'ring-2', 'ring-sky-400'), 2500);
-                }
-                return;
-            }
-        }
-    }
-  };
 
   // Synchronized scroll event handler between Table 1 & Table 2
   const handleScrollSync = (sourceFileNum: 1 | 2) => {
+    updateArrows();
     if (!syncScroll || isSyncingScrollRef.current) return;
     isSyncingScrollRef.current = true;
 
@@ -1121,6 +1093,84 @@ export default function ExcelToolsPage() {
     }
   };
 
+  const updateArrows = useCallback(() => {
+    if (!gridWrapperRef.current || !filteredPreviewData2 || filteredPreviewData2.length === 0 || !filteredPreviewData1 || filteredPreviewData1.length === 0) {
+      setArrowPaths([]);
+      return;
+    }
+
+    if (previewLayoutMode !== "grid" || isFormMinimized) {
+      setArrowPaths([]);
+      return;
+    }
+
+    const wrapperRect = gridWrapperRef.current.getBoundingClientRect();
+    const newPaths: any[] = [];
+    
+    const activeCols1 = Array.from(selectedKeyCols1Set);
+    const activeCols2 = Array.from(selectedKeyCols2Set);
+    
+    const maxItems = Math.min(filteredPreviewData1.length, previewLimit1);
+    for (let i = 0; i < maxItems; i++) {
+        const row1 = filteredPreviewData1[i];
+        
+        const row1El = document.getElementById(`file1-row-${i}`);
+        if (!row1El) continue;
+        const rect1 = row1El.getBoundingClientRect();
+        
+        if (!tableContainer1Ref.current) continue;
+        const container1Rect = tableContainer1Ref.current.getBoundingClientRect();
+        if (rect1.bottom < container1Rect.top || rect1.top > container1Rect.bottom) continue;
+
+        const searchValues = new Set();
+        const colsToSearch = activeCols1.length > 0 ? activeCols1 : (file1Preview?.columns || []);
+        colsToSearch.forEach((c: any) => {
+            const v = String(row1[c] ?? "").trim().toLowerCase();
+            if (v) searchValues.add(v);
+        });
+
+        if (searchValues.size === 0) continue;
+
+        for (let j = 0; j < Math.min(filteredPreviewData2.length, previewLimit2); j++) {
+            const row2 = filteredPreviewData2[j];
+            const cols2 = activeCols2.length > 0 ? activeCols2 : (file2Preview?.columns || []);
+            let matchFound = false;
+            for (let c of cols2) {
+                const v2 = String(row2[c] ?? "").trim().toLowerCase();
+                if (v2 && searchValues.has(v2)) {
+                    matchFound = true;
+                    break;
+                }
+            }
+            if (matchFound) {
+                const row2El = document.getElementById(`file2-row-${j}`);
+                if (row2El) {
+                    const rect2 = row2El.getBoundingClientRect();
+                    const container2Rect = tableContainer2Ref.current?.getBoundingClientRect();
+                    if (container2Rect) {
+                        if (rect2.bottom < container2Rect.top || rect2.top > container2Rect.bottom) continue;
+
+                        const x1 = rect1.right - wrapperRect.left;
+                        const y1 = rect1.top + (rect1.height / 2) - wrapperRect.top;
+                        const x2 = rect2.left - wrapperRect.left;
+                        const y2 = rect2.top + (rect2.height / 2) - wrapperRect.top;
+                        
+                        newPaths.push({ x1, y1, x2, y2 });
+                    }
+                }
+                break;
+            }
+        }
+    }
+    setArrowPaths(newPaths);
+  }, [filteredPreviewData1, filteredPreviewData2, previewLimit1, previewLimit2, selectedKeyCols1Set, selectedKeyCols2Set, file1Preview, file2Preview, previewLayoutMode, isFormMinimized]);
+
+  useEffect(() => {
+    updateArrows();
+    window.addEventListener('resize', updateArrows);
+    return () => window.removeEventListener('resize', updateArrows);
+  }, [updateArrows]);
+
   return (
     <div className="space-y-6 pb-12">
       {/* Title */}
@@ -1792,7 +1842,31 @@ export default function ExcelToolsPage() {
 
           {showPreview && (
             <>
-              <div className={previewLayoutMode === "grid" ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "space-y-6"}>
+              <div ref={gridWrapperRef} className={`relative ${previewLayoutMode === "grid" ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "space-y-6"}`}>
+                {arrowPaths.length > 0 && previewLayoutMode === "grid" && !isFormMinimized && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-50">
+                    <defs>
+                      <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+                        <polygon points="0 0, 6 2, 0 4" fill="#3b82f6" />
+                      </marker>
+                    </defs>
+                    {arrowPaths.map((p, i) => {
+                      const cpX1 = p.x1 + Math.abs(p.x2 - p.x1) * 0.4;
+                      const cpX2 = p.x2 - Math.abs(p.x2 - p.x1) * 0.4;
+                      return (
+                        <path 
+                          key={i} 
+                          d={`M ${p.x1} ${p.y1} C ${cpX1} ${p.y1}, ${cpX2} ${p.y2}, ${p.x2} ${p.y2}`} 
+                          fill="none" 
+                          stroke="#3b82f6" 
+                          strokeWidth="2" 
+                          markerEnd="url(#arrowhead)" 
+                          className="opacity-80 drop-shadow-md animate-in fade-in"
+                        />
+                      );
+                    })}
+                  </svg>
+                )}
                 {/* PREVIEW FILE 1 */}
                 <div className="bg-card border border-border rounded-xl p-5 space-y-3 shadow-sm">
                   <div className="flex items-center justify-between border-b border-border pb-2 gap-2">
@@ -1866,7 +1940,6 @@ export default function ExcelToolsPage() {
                             <thead className="bg-emerald-950 sticky top-0 border-b border-emerald-500/50 text-emerald-200 font-black shadow-sm">
                               <tr>
                                 <th className="p-2.5 border-r border-emerald-500/30 font-mono text-[10px] bg-emerald-950 text-emerald-400">#</th>
-                                <th className="p-2.5 border-r border-emerald-500/30 font-mono text-[10px] bg-emerald-950 text-emerald-400 w-10 text-center" title="Arahkan ke data yang sama di File 2">Tautan</th>
                                 {visibleCols1.map((col: any, idx: any) => {
                                   const isSorted = sortCol1 === col;
                                   const isEditingThisColumn = editingColumn?.fileNum === 1 && editingColumn?.colIdx === idx;
@@ -1925,7 +1998,7 @@ export default function ExcelToolsPage() {
                             </thead>
                             <tbody className="divide-y divide-border font-mono text-[11px]">
                               {filteredPreviewData1.slice(0, previewLimit1).map((row: any, rIdx: any) => (
-                                <tr key={rIdx} className="hover:bg-emerald-500/10 transition-all">
+                                <tr key={rIdx} id={`file1-row-${rIdx}`} className="hover:bg-emerald-500/10 transition-all">
                                   <td className="p-2 border-r border-border text-muted-foreground text-[10px] relative group w-12 text-center align-middle">
                                     <span className="group-hover:hidden">{rIdx + 1}</span>
                                     <button 
@@ -1935,31 +2008,6 @@ export default function ExcelToolsPage() {
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
-                                  </td>
-                                  <td className="p-2 border-r border-border text-center align-middle">
-                                    {(() => {
-                                      const activeCols1 = Array.from(selectedKeyCols1Set);
-                                      const colsToSearch = activeCols1.length > 0 ? activeCols1 : visibleCols1;
-                                      let hasMatch = false;
-                                      for (let c of colsToSearch) {
-                                        const v = String(row[c] ?? "").trim().toLowerCase();
-                                        if (v && file2ValuesSet.has(v)) {
-                                          hasMatch = true;
-                                          break;
-                                        }
-                                      }
-                                      return hasMatch ? (
-                                        <button 
-                                          onClick={(e) => { e.stopPropagation(); scrollToMatch(row); }}
-                                          className="p-1 rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-400 hover:text-slate-950 transition-all hover:scale-110 shadow-sm"
-                                          title="Sorot baris yang sama di File 2"
-                                        >
-                                          <ArrowRight className="w-3.5 h-3.5" />
-                                        </button>
-                                      ) : (
-                                        <span className="text-muted-foreground/30 text-[10px]">-</span>
-                                      );
-                                    })()}
                                   </td>
                                   {visibleCols1.map((col: any, cIdx: any) => {
                                     const rawVal = String(row[col] ?? "").trim();
