@@ -59,6 +59,30 @@ export default function SettingsPage() {
     setMessage(null);
     setStatusType(null);
     try {
+      // 1. Langsung push ke Firestore dari Frontend
+      try {
+        const { doc, setDoc } = await import("firebase/firestore");
+        const { db } = await import("@/lib/firebase");
+        
+        await setDoc(doc(db, "settings", "system_config"), {
+          PRIMARY_STORAGE_ENGINE: storageEngine,
+          TESSERACT_CMD: tesseractCmd,
+          CLOUDINARY_CLOUD_NAME: cloudName,
+          CLOUDINARY_UPLOAD_PRESET: uploadPreset,
+          FIREBASE_PROJECT_ID: firebaseProjectId,
+          FIREBASE_API_KEY: firebaseApiKey,
+          FIREBASE_SERVICE_ACCOUNT_JSON: firebaseServiceAccountJson,
+          OPENAI_API_KEY: openaiKey,
+          GEMINI_API_KEY: geminiKey,
+          DEEPSEEK_API_KEY: deepseekKey,
+          PRIMARY_AI_PROVIDER: primaryAi,
+        }, { merge: true });
+        console.log("Berhasil push langsung ke Firestore dari client!");
+      } catch (fbErr) {
+        console.warn("Gagal push ke Firestore dari client:", fbErr);
+      }
+
+      // 2. Teruskan ke Backend (supaya backend juga memperbarui environment-nya sendiri)
       const res = await SettingsAPI.update({
         primary_storage_engine: storageEngine,
         tesseract_cmd: tesseractCmd,
