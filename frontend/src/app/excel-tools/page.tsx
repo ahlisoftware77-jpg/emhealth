@@ -1431,28 +1431,37 @@ export default function ExcelToolsPage() {
                     const hasMatch = file2Preview?.columns?.some((c: string) => c.toLowerCase() === col.toLowerCase());
                     const isSelected = selectedKeyCols1Set.has(col);
                     return (
-                      <button
-                        key={idx}
-                        type="button"
+                      <div key={idx} className="relative group inline-flex shadow-sm rounded-md">
+                        <button
+                          type="button"
                           draggable={true}
                           onDragStart={() => { draggedCol1Ref.current = col; }}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => handleColumnReorder(1, col)}
-                        onClick={() => {
-                          if (isSelected) {
-                            setKeyCols1(Array.from(selectedKeyCols1Set).filter((c: any) => c !== col).join(", "));
-                          } else {
-                            setKeyCols1([...Array.from(selectedKeyCols1Set), col].join(", "));
-                          }
-                        }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm cursor-grab active:cursor-grabbing ${isSelected
-                            ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
-                            : (!hasMatch ? "bg-red-950/50 text-red-300 border-red-700/50 hover:bg-red-900/50 hover:text-red-200" : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white")
-                          }`}
-                        title={!hasMatch ? "Kolom ini tidak ditemukan di File 2!" : ""}
-                      >
-                        {isSelected ? "✓ " : "+ "}{col}
-                      </button>
+                          onClick={() => {
+                            if (isSelected) {
+                              setKeyCols1(Array.from(selectedKeyCols1Set).filter((c: any) => c !== col).join(", "));
+                            } else {
+                              setKeyCols1([...Array.from(selectedKeyCols1Set), col].join(", "));
+                            }
+                          }}
+                          className={`px-2.5 py-1 rounded-l-md text-xs font-mono transition-all border cursor-grab active:cursor-grabbing ${isSelected
+                              ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
+                              : (!hasMatch ? "bg-red-950/50 text-red-300 border-red-700/50 hover:bg-red-900/50 hover:text-red-200" : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white")
+                            }`}
+                          title={!hasMatch ? "Kolom ini tidak ditemukan di File 2!" : ""}
+                        >
+                          {isSelected ? "✓ " : "+ "}{col}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteColumn(1, col); }}
+                          className={`px-1.5 py-1 border-y border-r rounded-r-md transition-all ${!hasMatch ? "border-red-700/50 bg-red-950/80 text-red-400 hover:bg-red-600 hover:text-white" : "border-slate-600 bg-slate-800/80 text-slate-400 hover:bg-red-600 hover:text-white hover:border-red-600"}`}
+                          title={`Hapus kolom ${col}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -1540,27 +1549,36 @@ export default function ExcelToolsPage() {
                   {file2Preview.columns.map((col: any, idx: any) => {
                     const isSelected = selectedKeyCols2Set.has(col);
                     return (
-                      <button
-                        key={idx}
-                        type="button"
+                      <div key={idx} className="relative group inline-flex shadow-sm rounded-md">
+                        <button
+                          type="button"
                           draggable={true}
                           onDragStart={() => { draggedCol2Ref.current = col; }}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => handleColumnReorder(2, col)}
-                        onClick={() => {
-                          if (isSelected) {
-                            setKeyCols2(Array.from(selectedKeyCols2Set).filter((c: any) => c !== col).join(", "));
-                          } else {
-                            setKeyCols2([...Array.from(selectedKeyCols2Set), col].join(", "));
-                          }
-                        }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm cursor-grab active:cursor-grabbing ${isSelected
+                          onClick={() => {
+                            if (isSelected) {
+                              setKeyCols2(Array.from(selectedKeyCols2Set).filter((c: any) => c !== col).join(", "));
+                            } else {
+                              setKeyCols2([...Array.from(selectedKeyCols2Set), col].join(", "));
+                            }
+                          }}
+                          className={`px-2.5 py-1 rounded-l-md text-xs font-mono transition-all border cursor-grab active:cursor-grabbing ${isSelected
                             ? "bg-sky-400 text-slate-950 font-bold border-sky-300 ring-2 ring-sky-300/40"
                             : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
                           }`}
-                      >
-                        {isSelected ? "✓ " : "+ "}{col}
-                      </button>
+                        >
+                          {isSelected ? "✓ " : "+ "}{col}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteColumn(2, col); }}
+                          className={`px-1.5 py-1 border-y border-r rounded-r-md transition-all border-slate-600 bg-slate-800/80 text-slate-400 hover:bg-red-600 hover:text-white hover:border-red-600`}
+                          title={`Hapus kolom ${col}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
