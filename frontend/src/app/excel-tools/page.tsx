@@ -433,6 +433,38 @@ export default function ExcelToolsPage() {
   const [isSavingFile2, setIsSavingFile2] = useExcelStoreState("isSavingFile2");
 
   // Handler to persist edited preview rows directly into physical Excel file
+  const handleCleanTime = (fileNum: 1 | 2) => {
+    if (fileNum === 1 && file1Preview) {
+      saveHistory(1);
+      const newData = file1Preview.preview_data.map((row: any) => {
+        const newRow = { ...row };
+        for (const key in newRow) {
+          if (typeof newRow[key] === 'string' && newRow[key].endsWith(' 00:00:00')) {
+            newRow[key] = newRow[key].replace(' 00:00:00', '');
+          }
+        }
+        return newRow;
+      });
+      setFile1Preview({ ...file1Preview, preview_data: newData });
+      setHasUnsavedChanges1(true);
+      setMessage("??Berhasil membersihkan 00:00:00 di File 1");
+    } else if (fileNum === 2 && file2Preview) {
+      saveHistory(2);
+      const newData = file2Preview.preview_data.map((row: any) => {
+        const newRow = { ...row };
+        for (const key in newRow) {
+          if (typeof newRow[key] === 'string' && newRow[key].endsWith(' 00:00:00')) {
+            newRow[key] = newRow[key].replace(' 00:00:00', '');
+          }
+        }
+        return newRow;
+      });
+      setFile2Preview({ ...file2Preview, preview_data: newData });
+      setHasUnsavedChanges2(true);
+      setMessage("??Berhasil membersihkan 00:00:00 di File 2");
+    }
+  };
+
   const handleSaveToFile = async (fileNum: 1 | 2) => {
     const targetFile = fileNum === 1 ? file1 : file2;
     const targetPreview = fileNum === 1 ? file1Preview : file2Preview;
@@ -1939,6 +1971,14 @@ export default function ExcelToolsPage() {
                           )}
                           <button
                             type="button"
+                            onClick={() => handleCleanTime(1)}
+                            title="Bersihkan jam 00:00:00 dari semua kolom"
+                            className="px-2.5 py-0.5 rounded bg-slate-700/50 text-slate-200 hover:bg-slate-700 hover:text-white text-[10px] font-mono border border-slate-600 transition-all shadow-sm"
+                          >
+                            <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Bersihkan 00:00:00</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleSaveToFile(1)}
                             disabled={isSavingFile1}
                             title="Simpan semua perubahan isi sel langsung ke berkas fisik Excel File 1"
@@ -2158,6 +2198,14 @@ export default function ExcelToolsPage() {
                               <Undo2 className="w-3 h-3" /> Undo
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => handleCleanTime(2)}
+                            title="Bersihkan jam 00:00:00 dari semua kolom"
+                            className="px-2.5 py-0.5 rounded bg-slate-700/50 text-slate-200 hover:bg-slate-700 hover:text-white text-[10px] font-mono border border-slate-600 transition-all shadow-sm"
+                          >
+                            <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Bersihkan 00:00:00</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleSaveToFile(2)}
