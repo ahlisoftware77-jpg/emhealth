@@ -54,7 +54,10 @@ class ImageRenamePreviewRequest(BaseModel):
     case_transform: str = "none"
 
 class ImageCompressRequest(BaseModel):
-    image_names: List[str]
+    source_mode: str = "uploaded"  # "uploaded" or "local"
+    image_names: List[str] = []
+    local_paths: List[str] = [] # Used if source_mode == "local"
+    output_dir: Optional[str] = None # Used if output_target == "local"
     quality: int = Field(80, ge=1, le=100)
     max_width: Optional[int] = None
     max_height: Optional[int] = None

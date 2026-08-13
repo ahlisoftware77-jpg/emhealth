@@ -178,6 +178,15 @@ export default function MCUEmailBlastPage() {
     }
   };
 
+  const isLocalImagePath = (val: string) => {
+    if (!val) return false;
+    const lower = val.toLowerCase();
+    return (
+      (lower.includes(":\\") || lower.includes(":/") || lower.startsWith("/")) &&
+      (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") || lower.endsWith(".gif"))
+    );
+  };
+
   return (
     <div className="space-y-6 pb-16">
       {/* Header Banner */}
@@ -333,11 +342,29 @@ export default function MCUEmailBlastPage() {
                     {excelPreview.preview_data.map((row: any, rIdx: number) => (
                       <tr key={rIdx} className="hover:bg-muted/30 transition-all">
                         <td className="p-1.5 border-r border-border text-muted-foreground text-center">{rIdx + 1}</td>
-                        {excelPreview.columns.map((col: string, cIdx: number) => (
-                          <td key={cIdx} className="p-1.5 border-r border-border truncate max-w-[200px] text-foreground">
-                            {String(row[col] ?? "")}
-                          </td>
-                        ))}
+                        {excelPreview.columns.map((col: string, cIdx: number) => {
+                          const cellValue = String(row[col] ?? "");
+                          const isImg = isLocalImagePath(cellValue);
+                          return (
+                            <td key={cIdx} className="p-1.5 border-r border-border max-w-[200px] text-foreground">
+                              {isImg ? (
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="truncate w-full text-[10px] text-muted-foreground" title={cellValue}>{cellValue}</span>
+                                  <img 
+                                    src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003"}/api/v1/local-file/preview?path=${encodeURIComponent(cellValue)}`} 
+                                    alt="Preview" 
+                                    className="h-12 w-auto rounded object-cover border border-slate-700 shadow-sm"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <span className="truncate block" title={cellValue}>{cellValue}</span>
+                              )}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>

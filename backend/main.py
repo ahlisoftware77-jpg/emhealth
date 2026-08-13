@@ -19,6 +19,7 @@ from app.api.v1.stats import router as stats_router
 from app.api.v1.ai import router as ai_router
 from app.api.v1.mcu_blast import router as mcu_blast_router
 from app.api.v1.file_history import router as file_history_router
+from app.api.v1.local_file import router as local_file_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -55,6 +56,7 @@ app.include_router(stats_router, prefix=settings.API_V1_STR)
 app.include_router(ai_router, prefix=settings.API_V1_STR)
 app.include_router(mcu_blast_router, prefix=settings.API_V1_STR)
 app.include_router(file_history_router, prefix=settings.API_V1_STR)
+app.include_router(local_file_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():

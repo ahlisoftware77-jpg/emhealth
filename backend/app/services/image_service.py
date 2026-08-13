@@ -81,9 +81,16 @@ class ImageService:
         max_width: Optional[int] = None,
         max_height: Optional[int] = None,
         target_format: str = "original",
-        remove_metadata: bool = True
+        remove_metadata: bool = True,
+        output_mode: str = "zip",
+        output_dir: Optional[Path] = None
     ) -> Tuple[Path, Dict[str, Any]]:
-        temp_out = settings.TEMP_DIR / f"batch_compress_{os.urandom(4).hex()}"
+        
+        if output_mode == "local" and output_dir:
+            temp_out = output_dir
+        else:
+            temp_out = settings.TEMP_DIR / f"batch_compress_{os.urandom(4).hex()}"
+        
         temp_out.mkdir(parents=True, exist_ok=True)
 
         results = []
@@ -101,23 +108,35 @@ class ImageService:
             except Exception as e:
                 logger.error(f"Error compressing {img_path.name}: {e}")
 
-        # Package into ZIP archive
-        zip_filename = f"compressed_images_{os.urandom(4).hex()}.zip"
-        zip_path = settings.OUTPUT_DIR / zip_filename
-
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for f in temp_out.glob('*'):
-                zipf.write(f, arcname=f.name)
-
         overall_reduction = round(((total_initial - total_compressed) / total_initial) * 100, 2) if total_initial > 0 else 0.0
 
-        summary = {
-            "total_images": len(image_paths),
-            "processed_images": len(results),
-            "total_initial_bytes": total_initial,
-            "total_compressed_bytes": total_compressed,
-            "overall_reduction_percent": overall_reduction,
-            "zip_filename": zip_filename,
-            "details": results
-        }
+        if output_mode == "local":
+            zip_path = temp_out
+            summary = {
+                "total_images": len(image_paths),
+                "processed_images": len(results),
+                "total_initial_bytes": total_initial,
+                "total_compressed_bytes": total_compressed,
+                "overall_reduction_percent": overall_reduction,
+                "details": results
+            }
+        else:
+            # Package into ZIP archive
+            zip_filename = f"compressed_images_{os.urandom(4).hex()}.zip"
+            zip_path = settings.OUTPUT_DIR / zip_filename
+
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for f in temp_out.glob('*'):
+                    zipf.write(f, arcname=f.name)
+            
+            summary = {
+                "total_images": len(image_paths),
+                "processed_images": len(results),
+                "total_initial_bytes": total_initial,
+                "total_compressed_bytes": total_compressed,
+                "overall_reduction_percent": overall_reduction,
+                "zip_filename": zip_filename,
+                "details": results
+            }
+
         return zip_path, summary

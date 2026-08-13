@@ -141,25 +141,50 @@ async def batch_rename_images(req: ImageRenameRequest, bg_tasks: BackgroundTasks
 def process_compress_job(job_id: str, req: ImageCompressRequest):
     try:
         job_queue_service.update_job(job_id, status="Running", progress=20.0, message="Mengompresi berkas gambar...")
-        img_paths = [settings.UPLOAD_DIR / name for name in req.image_names]
         
+        if req.source_mode == "local" and req.local_paths:
+            img_paths = []
+            for p in req.local_paths:
+                path_obj = Path(p)
+                if path_obj.is_file():
+                    img_paths.append(path_obj)
+                elif path_obj.is_dir():
+                    img_paths.extend([f for f in path_obj.iterdir() if f.is_file() and f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.bmp']])
+            output_dir = Path(req.output_dir) if req.output_dir else None
+        else:
+            img_paths = [settings.UPLOAD_DIR / name for name in req.image_names]
+            output_dir = None
+            
         zip_path, summary = ImageService.batch_compress(
             image_paths=img_paths,
             quality=req.quality,
             max_width=req.max_width,
             max_height=req.max_height,
             target_format=req.target_format,
-            remove_metadata=req.remove_metadata
+            remove_metadata=req.remove_metadata,
+            output_mode=req.output_target,
+            output_dir=output_dir
         )
 
-        job_queue_service.update_job(
-            job_id,
-            status="Completed",
-            progress=100.0,
-            message=f"Kompresi selesai! Ukuran hemat {summary['overall_reduction_percent']}%.",
-            result_url=f"/api/v1/storage/download/{zip_path.name}",
-            download_filename=zip_path.name
-        )
+        if req.output_target == "local":
+             job_queue_service.update_job(
+                job_id,
+                status="Completed",
+                progress=100.0,
+                message=f"Kompresi selesai! File tersimpan di folder lokal: {zip_path}",
+                result_url=None,
+                download_filename=None,
+                result_data={"folder_path": str(zip_path)}
+            )
+        else:
+            job_queue_service.update_job(
+                job_id,
+                status="Completed",
+                progress=100.0,
+                message=f"Kompresi selesai! Ukuran hemat {summary['overall_reduction_percent']}%.",
+                result_url=f"/api/v1/storage/download/{zip_path.name}",
+                download_filename=zip_path.name
+            )
     except Exception as e:
         job_queue_service.update_job(job_id, status="Failed", error_detail=str(e))
 

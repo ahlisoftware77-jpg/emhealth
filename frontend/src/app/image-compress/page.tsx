@@ -8,7 +8,10 @@ import { AIAssistantBox } from "@/components/ui/AIAssistantBox";
 
 export default function ImageCompressPage() {
   const [images, setImages] = useState<File[]>([]);
-  const [uploadMode, setUploadMode] = useState<"file" | "folder">("file");
+  const [uploadMode, setUploadMode] = useState<"file" | "folder" | "local">("file");
+  const [localSourceDir, setLocalSourceDir] = useState<string>("");
+  const [localOutputDir, setLocalOutputDir] = useState<string>("");
+  
   const [quality, setQuality] = useState<number>(80);
   const [targetFormat, setTargetFormat] = useState<string>("WEBP");
   const [maxWidth, setMaxWidth] = useState<string>("");
@@ -19,22 +22,33 @@ export default function ImageCompressPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const handleCompress = async () => {
-    if (images.length === 0) {
+    if (uploadMode !== "local" && images.length === 0) {
       setMessage("Silakan upload sekurangnya 1 berkas gambar terlebih dahulu.");
       return;
     }
+    if (uploadMode === "local" && !localSourceDir) {
+      setMessage("Silakan masukkan Path Folder Asal terlebih dahulu.");
+      return;
+    }
+
     setIsProcessing(true);
     setMessage(null);
     try {
-      await ImageAPI.upload(images);
+      if (uploadMode !== "local") {
+        await ImageAPI.upload(images);
+      }
+      
       const res = await ImageAPI.compress({
-        image_names: images.map((f) => f.name),
+        source_mode: uploadMode === "local" ? "local" : "uploaded",
+        image_names: uploadMode !== "local" ? images.map((f) => f.name) : [],
+        local_paths: uploadMode === "local" ? [localSourceDir] : [],
         quality,
         max_width: maxWidth ? Number(maxWidth) : null,
         max_height: maxHeight ? Number(maxHeight) : null,
         target_format: targetFormat,
         remove_metadata: removeMetadata,
-        output_target: "zip",
+        output_target: uploadMode === "local" ? "local" : "zip",
+        output_dir: uploadMode === "local" ? localOutputDir : undefined,
       });
 
       setMessage(`Job Kompresi Gambar telah dijadwalkan (ID: ${res.job.job_id}). Pantau di Job Queue.`);
@@ -116,24 +130,68 @@ export default function ImageCompressPage() {
               >
                 Pilih Seluruh Folder
               </button>
+              <button
+                onClick={() => setUploadMode("local")}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  uploadMode === "local" ? "bg-emerald-500 text-slate-950 shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Proses Folder Lokal
+              </button>
             </div>
           </div>
           
-          <FileUploader
-            accept={{ "image/*": [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".heic"] }}
-            label={uploadMode === "folder" ? "Klik di sini untuk memilih Folder (semua gambar di dalamnya akan dibaca)" : "Tarik & lepas berkas gambar di sini atau klik untuk memilih file"}
-            multiple={true}
-            allowDirectory={uploadMode === "folder"}
-            onFilesSelected={(files) => setImages(files)}
-          />
+          {uploadMode !== "local" ? (
+            <>
+              <FileUploader
+                accept={{ "image/*": [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".heic"] }}
+                label={uploadMode === "folder" ? "Klik di sini untuk memilih Folder (semua gambar di dalamnya akan dibaca)" : "Tarik & lepas berkas gambar di sini atau klik untuk memilih file"}
+                multiple={true}
+                allowDirectory={uploadMode === "folder"}
+                onFilesSelected={(files) => setImages(files)}
+              />
 
-          <div className="text-[11px] text-muted-foreground bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20 mt-4 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-            <p>
-              <strong className="text-emerald-400 font-semibold block mb-0.5">Mengenai Folder Output:</strong> 
-              Demi keamanan browser, aplikasi Cloud tidak dapat langsung menulis file ke dalam partisi lokal Anda (seperti D:\). Oleh karena itu, hasil gambar yang telah di-compress akan otomatis dikemas menjadi satu file <strong>.ZIP</strong>. Anda akan dapat mengunduhnya dan memilih lokasi penyimpanan (Folder Output) melalui dialog "Save As" bawaan komputer Anda.
-            </p>
-          </div>
+              <div className="text-[11px] text-muted-foreground bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20 mt-4 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <p>
+                  <strong className="text-emerald-400 font-semibold block mb-0.5">Mengenai Folder Output:</strong> 
+                  Demi keamanan browser, aplikasi Cloud tidak dapat langsung menulis file ke dalam partisi lokal Anda (seperti D:\). Oleh karena itu, hasil gambar yang telah di-compress akan otomatis dikemas menjadi satu file <strong>.ZIP</strong>. Anda akan dapat mengunduhnya dan memilih lokasi penyimpanan (Folder Output) melalui dialog "Save As" bawaan komputer Anda.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4 pt-2">
+              <div className="text-[11px] text-muted-foreground bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <p>
+                  <strong className="text-amber-500 font-semibold block mb-0.5">Mode Lokal Aktif:</strong>
+                  Backend akan langsung membaca dan menulis file dari/ke direktori lokal PC Anda tanpa proses upload/download. Path yang Anda ketik di bawah harus valid.
+                </p>
+              </div>
+              
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Path Folder Asal (Sumber Foto):</label>
+                <input
+                  type="text"
+                  value={localSourceDir}
+                  onChange={(e) => setLocalSourceDir(e.target.value)}
+                  placeholder="Contoh: D:\Photos\Original"
+                  className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Path Folder Tujuan Output (Opsional):</label>
+                <input
+                  type="text"
+                  value={localOutputDir}
+                  onChange={(e) => setLocalOutputDir(e.target.value)}
+                  placeholder="Bila dikosongkan, backend akan membuat folder Temp"
+                  className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Compression Controls */}
