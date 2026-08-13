@@ -460,6 +460,17 @@ export default function ExcelToolsPage() {
         });
       }
 
+      // Rebuild rows to respect column order so pandas infers the exact structure
+      dataToSave = dataToSave.map((row: any) => {
+        const newRow: any = {};
+        targetPreview.columns.forEach((col: string) => {
+          if (row.hasOwnProperty(col)) {
+            newRow[col] = row[col];
+          }
+        });
+        return newRow;
+      });
+
       const fileUrl = (targetFile as any).cloudinaryUrl || undefined;
       const res = await ExcelAPI.savePreview(targetFile.name, dataToSave, fileUrl);
       
