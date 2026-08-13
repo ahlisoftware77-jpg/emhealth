@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import List, Dict, Any, Tuple, Optional
 from app.core.config import settings
 import logging
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,15 @@ class ExcelService:
                             row_dict = {}
                             for j, val in enumerate(row_values):
                                 col_name = headers[j] if j < len(headers) else f"Kolom_{j+1}"
-                                row_dict[col_name] = "" if val is None else str(val).strip()
+                                if val is None:
+                                    row_dict[col_name] = ""
+                                elif isinstance(val, datetime.datetime):
+                                    if val.time() == datetime.time(0, 0, 0):
+                                        row_dict[col_name] = val.strftime("%Y-%m-%d")
+                                    else:
+                                        row_dict[col_name] = str(val).strip()
+                                else:
+                                    row_dict[col_name] = str(val).strip()
                             records.append(row_dict)
                             if len(records) >= max_rows:
                                 break
@@ -68,7 +77,12 @@ class ExcelService:
                     df = pd.read_excel(bio, dtype=str).head(max_rows).fillna("")
                     columns = [str(c).strip() for c in df.columns.tolist()]
                     for row in df.head(max_rows).to_dict(orient="records"):
-                        clean_row = {str(k): "" if pd.isna(v) or v is None else str(v).strip() for k, v in row.items()}
+                        clean_row = {}
+                        for k, v in row.items():
+                            val_str = "" if pd.isna(v) or v is None else str(v).strip()
+                            if val_str.endswith(" 00:00:00"):
+                                val_str = val_str[:-9]
+                            clean_row[str(k)] = val_str
                         records.append(clean_row)
             else:
                 raise ValueError(f"Format file tidak didukung: {ext}")
@@ -115,7 +129,15 @@ class ExcelService:
                             row_dict = {}
                             for j, val in enumerate(row_values):
                                 col_name = headers[j] if j < len(headers) else f"Kolom_{j+1}"
-                                row_dict[col_name] = "" if val is None else str(val).strip()
+                                if val is None:
+                                    row_dict[col_name] = ""
+                                elif isinstance(val, datetime.datetime):
+                                    if val.time() == datetime.time(0, 0, 0):
+                                        row_dict[col_name] = val.strftime("%Y-%m-%d")
+                                    else:
+                                        row_dict[col_name] = str(val).strip()
+                                else:
+                                    row_dict[col_name] = str(val).strip()
                             records.append(row_dict)
                             if len(records) >= max_rows:
                                 break
@@ -125,7 +147,12 @@ class ExcelService:
                     df = pd.read_excel(file_path, dtype=str).head(max_rows).fillna("")
                     columns = [str(c).strip() for c in df.columns.tolist()]
                     for row in df.head(max_rows).to_dict(orient="records"):
-                        clean_row = {str(k): "" if pd.isna(v) or v is None else str(v).strip() for k, v in row.items()}
+                        clean_row = {}
+                        for k, v in row.items():
+                            val_str = "" if pd.isna(v) or v is None else str(v).strip()
+                            if val_str.endswith(" 00:00:00"):
+                                val_str = val_str[:-9]
+                            clean_row[str(k)] = val_str
                         records.append(clean_row)
             else:
                 raise ValueError(f"Format file tidak didukung: {ext}")
