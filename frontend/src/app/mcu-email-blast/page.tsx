@@ -21,13 +21,25 @@ import {
   Check, 
   AlertTriangle,
   RotateCw,
-  ShieldCheck
+  ShieldCheck,
+  FolderOpen,
+  Loader2
 } from "lucide-react";
+import { LocalFolderBrowser } from "@/components/ui/LocalFolderBrowser";
 
 export default function MCUEmailBlastPage() {
   // State 1: Uploads
   const [excelFile, setExcelFile] = useState<File | null>(null);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  
+  const [localSourceDir, setLocalSourceDir] = useState<string>("");
+  const [localOutputDir, setLocalOutputDir] = useState<string>("");
+  
+  const [isSourceBrowserOpen, setIsSourceBrowserOpen] = useState(false);
+  const [isOutputBrowserOpen, setIsOutputBrowserOpen] = useState(false);
+  
+  const [previewImages, setPreviewImages] = useState<any[]>([]);
+  const [loadingPreviewImages, setLoadingPreviewImages] = useState(false);
+
   const [excelPreview, setExcelPreview] = useState<any>(null);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
 
@@ -125,14 +137,34 @@ export default function MCUEmailBlastPage() {
   };
 
   // Handler 3: Process Images & Match Excel
+  const loadPreviewImages = async (path: string) => {
+    if (!path) {
+      setPreviewImages([]);
+      return;
+    }
+    setLoadingPreviewImages(true);
+    try {
+      const url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003"}/api/v1/local-file/images-in-directory?path=${encodeURIComponent(path)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewImages(data.images.slice(0, 100)); // Batasi max 100 gambar
+      }
+    } catch (err) {
+      console.error("Gagal load preview gambar", err);
+    } finally {
+      setLoadingPreviewImages(false);
+    }
+  };
+
   const handleProcessImages = async () => {
-    if (imageFiles.length === 0) {
-      alert("Silakan unggah minimal 1 file gambar!");
+    if (!localSourceDir) {
+      alert("Silakan masukkan Path Folder Asal terlebih dahulu.");
       return;
     }
     setProcessingImages(true);
     try {
-      const res = await MCUBlastAPI.processImages(imageFiles, excelFile || undefined);
+      const res = await MCUBlastAPI.processLocalImages(localSourceDir, localOutputDir, excelFile || undefined);
       setProcessedData({
         total_recipients: res.total_recipients_in_excel,
         total_processed: res.total_images_processed,
@@ -288,24 +320,90 @@ export default function MCUEmailBlastPage() {
             <p className="text-xs text-muted-foreground">
               Foto akan otomatis diputar ke posisi portrait, dikompresi di bawah 500KB, dan di-rename berdasarkan NIK/Email Excel.
             </p>
-            <FileUploader
-              accept={{ "image/*": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"] }}
-              multiple={true}
-              onFilesSelected={(files) => setImageFiles(files)}
-            />
-            {imageFiles.length > 0 && (
-              <div className="p-3 bg-muted/60 rounded-lg text-xs flex items-center justify-between border border-border">
-                <span className="font-medium text-foreground">{imageFiles.length} File Gambar Terpilih</span>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Path Folder Asal (Sumber Foto):</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={localSourceDir}
+                    onChange={(e) => setLocalSourceDir(e.target.value)}
+                    placeholder="Contoh: D:\Photos\Original"
+                    className="flex-1 px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
+                  />
+                  <button
+                    onClick={() => setIsSourceBrowserOpen(true)}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md font-semibold hover:bg-secondary/80 transition-colors flex items-center gap-2 shrink-0"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Browse...
+                  </button>
+                </div>
+              </div>
+
+              {localSourceDir && (
+                <div className="border border-border rounded-lg p-3 bg-muted/20">
+                  <h3 className="text-xs font-semibold flex items-center gap-2 mb-3">
+                    <ImageIcon className="w-4 h-4 text-sky-500" />
+                    Preview Gambar (Maks 100)
+                    {loadingPreviewImages && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground ml-2" />}
+                  </h3>
+                  
+                  {!loadingPreviewImages && previewImages.length === 0 ? (
+                    <div className="text-xs text-muted-foreground italic text-center p-4">
+                      Tidak ditemukan gambar yang didukung (.jpg, .png, .webp, .heic) di folder ini.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-[200px] overflow-y-auto pr-1">
+                      {previewImages.map((img, idx) => (
+                        <div key={idx} className="group relative aspect-square bg-muted rounded-md overflow-hidden border border-border">
+                          <img 
+                            src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003"}/api/v1/local-file/preview?path=${encodeURIComponent(img.path)}`}
+                            alt={img.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                            <p className="text-[9px] text-white truncate" title={img.name}>{img.name}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Path Folder Tujuan Output (Opsional):</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={localOutputDir}
+                    onChange={(e) => setLocalOutputDir(e.target.value)}
+                    placeholder="Bila dikosongkan, backend akan membuat folder Temp"
+                    className="flex-1 px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
+                  />
+                  <button
+                    onClick={() => setIsOutputBrowserOpen(true)}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md font-semibold hover:bg-secondary/80 transition-colors flex items-center gap-2 shrink-0"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Browse...
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2">
                 <button
                   onClick={handleProcessImages}
-                  disabled={processingImages}
-                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 shadow"
+                  disabled={processingImages || !localSourceDir}
+                  className="w-full px-4 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow"
                 >
-                  {processingImages ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  Proses Kompresi & Match
+                  {processingImages ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  Mulai Kompresi & Match
                 </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -723,6 +821,24 @@ export default function MCUEmailBlastPage() {
           </div>
         </div>
       )}
+
+      <LocalFolderBrowser
+        isOpen={isSourceBrowserOpen}
+        onClose={() => setIsSourceBrowserOpen(false)}
+        title="Pilih Folder Foto Asal"
+        onSelect={(path) => {
+          setLocalSourceDir(path);
+          loadPreviewImages(path);
+        }}
+      />
+
+      <LocalFolderBrowser
+        isOpen={isOutputBrowserOpen}
+        onClose={() => setIsOutputBrowserOpen(false)}
+        title="Pilih Folder Tujuan Output (Hasil Kompres & Rename)"
+        onSelect={(path) => setLocalOutputDir(path)}
+      />
+
     </div>
   );
 }

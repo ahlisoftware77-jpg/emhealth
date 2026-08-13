@@ -305,6 +305,18 @@ export const MCUBlastAPI = {
     });
     return res.data;
   },
+  processLocalImages: async (sourceDir: string, outputDir: string, excelFile?: File) => {
+    const formData = new FormData();
+    formData.append("source_dir", sourceDir);
+    formData.append("output_dir", outputDir);
+    if (excelFile) {
+      formData.append("excel_file", excelFile);
+    }
+    const res = await apiClient.post("/mcu-blast/process-local-images", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
   sendEmails: async (payload: any) => {
     const res = await apiClient.post("/mcu-blast/send-emails", payload);
     return res.data;

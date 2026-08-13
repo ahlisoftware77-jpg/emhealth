@@ -308,6 +308,85 @@ async def process_images(
         "results": processed_results
     }
 
+@router.post("/process-local-images")
+async def process_local_images(
+    source_dir: str = Form(...),
+    output_dir: str = Form(""),
+    excel_file: Optional[UploadFile] = File(None)
+):
+    import pathlib
+
+    if not source_dir or not os.path.exists(source_dir):
+        raise HTTPException(status_code=400, detail="Folder Asal tidak ditemukan atau tidak valid.")
+        
+    out_dir = output_dir if output_dir else OUTPUT_DIR
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+        
+    if excel_file:
+        content = await excel_file.read()
+        recipients = parse_excel_recipients(content)
+    else:
+        recipients = parse_excel_recipients(DEFAULT_EXCEL_PATH)
+
+    processed_results = []
+    supported_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.bmp', '.gif', '.heif']
+    
+    src_path = pathlib.Path(source_dir)
+    images = [p for p in src_path.iterdir() if p.is_file() and p.suffix.lower() in supported_extensions]
+    
+    for img_path in images:
+        filename = img_path.name
+        try:
+            with open(img_path, "rb") as f:
+                img_bytes = f.read()
+                
+            comp_bytes, final_w, final_h = process_single_image(img_bytes, filename)
+            orig_kb = round(len(img_bytes) / 1024, 2)
+            comp_kb = round(len(comp_bytes) / 1024, 2)
+
+            match_res = match_user_id(filename, recipients)
+            if match_res:
+                matched_uid, matched_detail, match_source = match_res
+                ext = os.path.splitext(filename)[1].lower()
+                if ext in (".png", ".heic", ".heif"):
+                    ext = ".jpg"
+                final_name = f"{matched_uid}{ext}"
+            else:
+                final_name = filename
+                ext = os.path.splitext(filename)[1].lower()
+                if ext in (".heic", ".heif"):
+                    final_name = os.path.splitext(filename)[0] + ".jpg"
+                matched_uid, matched_detail, match_source = None, None, None
+
+            # Save to output dir
+            save_path = os.path.join(out_dir, final_name)
+            with open(save_path, "wb") as f:
+                f.write(comp_bytes)
+
+            processed_results.append({
+                "original_filename": filename,
+                "final_filename": final_name,
+                "original_size_kb": orig_kb,
+                "compressed_size_kb": comp_kb,
+                "dimensions": f"{final_w}x{final_h}",
+                "orientation": "Portrait",
+                "matched_userid": matched_uid,
+                "matched_detail": matched_detail,
+                "match_source": match_source,
+                "saved_path": save_path
+            })
+        except Exception as e:
+            print(f"Error processing {filename}: {e}")
+
+    return {
+        "success": True,
+        "total_recipients_in_excel": len(recipients),
+        "total_images_processed": len(processed_results),
+        "recipients": recipients,
+        "results": processed_results
+    }
+
 @router.post("/send-emails")
 async def send_emails(req: SendEmailsRequest):
     recipients = req.recipients
