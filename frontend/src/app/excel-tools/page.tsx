@@ -1428,6 +1428,7 @@ export default function ExcelToolsPage() {
               {file1Preview?.columns && file1Preview.columns.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2 max-h-40 overflow-y-auto p-2 border border-slate-700/60 dark:border-slate-700 rounded-lg bg-slate-900/60 dark:bg-slate-950/80 shadow-inner">
                   {file1Preview.columns.map((col: any, idx: any) => {
+                    const hasMatch = file2Preview?.columns?.some((c: string) => c.toLowerCase() === col.toLowerCase());
                     const isSelected = selectedKeyCols1Set.has(col);
                     return (
                       <button
@@ -1446,8 +1447,9 @@ export default function ExcelToolsPage() {
                         }}
                         className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm cursor-grab active:cursor-grabbing ${isSelected
                             ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
-                            : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
+                            : (!hasMatch ? "bg-red-950/50 text-red-300 border-red-700/50 hover:bg-red-900/50 hover:text-red-200" : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white")
                           }`}
+                        title={!hasMatch ? "Kolom ini tidak ditemukan di File 2!" : ""}
                       >
                         {isSelected ? "✓ " : "+ "}{col}
                       </button>
@@ -2030,6 +2032,7 @@ export default function ExcelToolsPage() {
                               <tr>
                                 <th className="p-2.5 border-r border-emerald-500/30 font-mono text-[10px] bg-emerald-950 text-emerald-400">#</th>
                                 {visibleCols1.map((col: any, idx: any) => {
+                                  const hasMatch = file2Preview?.columns?.some((c: string) => c.toLowerCase() === col.toLowerCase());
                                   const isSorted = sortCol1 === col;
                                   const isEditingThisColumn = editingColumn?.fileNum === 1 && editingColumn?.colIdx === idx;
                                   
@@ -2060,8 +2063,8 @@ export default function ExcelToolsPage() {
                                       <div className="flex items-center justify-between gap-1 relative">
                                         <span 
                                           onDoubleClick={(e) => { e.stopPropagation(); setEditingColumn({ fileNum: 1, colIdx: idx }); setEditingColumnValue(col); }} 
-                                          className={`flex-1 truncate cursor-pointer hover:underline ${isSorted ? "text-amber-300" : ""}`}
-                                          title="Klik 2x untuk ubah nama kolom"
+                                          className={`flex-1 truncate cursor-pointer hover:underline ${isSorted ? "text-amber-300" : (!hasMatch ? "text-red-400" : "")}`}
+                                          title={!hasMatch ? "Kolom ini tidak ditemukan di File 2! (Klik 2x untuk ubah nama)" : "Klik 2x untuk ubah nama kolom"}
                                         >
                                           {col}
                                         </span>
