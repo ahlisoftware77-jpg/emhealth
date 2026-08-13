@@ -3,14 +3,21 @@
 import { useState } from "react";
 import { FileUploader } from "@/components/ui/FileUploader";
 import { ImageAPI } from "@/lib/api";
-import { Minimize2, Sliders, Zap, AlertCircle } from "lucide-react";
+import { Minimize2, Sliders, Zap, AlertCircle, FolderOpen, ImageIcon, Loader2 } from "lucide-react";
 import { AIAssistantBox } from "@/components/ui/AIAssistantBox";
+import { LocalFolderBrowser } from "@/components/ui/LocalFolderBrowser";
 
 export default function ImageCompressPage() {
   const [images, setImages] = useState<File[]>([]);
   const [uploadMode, setUploadMode] = useState<"file" | "folder" | "local">("file");
   const [localSourceDir, setLocalSourceDir] = useState<string>("");
   const [localOutputDir, setLocalOutputDir] = useState<string>("");
+  
+  const [isSourceBrowserOpen, setIsSourceBrowserOpen] = useState(false);
+  const [isOutputBrowserOpen, setIsOutputBrowserOpen] = useState(false);
+  
+  const [previewImages, setPreviewImages] = useState<any[]>([]);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   
   const [quality, setQuality] = useState<number>(80);
   const [targetFormat, setTargetFormat] = useState<string>("WEBP");
@@ -20,6 +27,26 @@ export default function ImageCompressPage() {
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  const loadPreviewImages = async (path: string) => {
+    if (!path) {
+      setPreviewImages([]);
+      return;
+    }
+    setLoadingPreview(true);
+    try {
+      const url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003"}/api/v1/local-file/images-in-directory?path=${encodeURIComponent(path)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewImages(data.images.slice(0, 100)); // Batasi max 100 gambar
+      }
+    } catch (err) {
+      console.error("Gagal load preview gambar", err);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
 
   const handleCompress = async () => {
     if (uploadMode !== "local" && images.length === 0) {
@@ -171,28 +198,95 @@ export default function ImageCompressPage() {
               
               <div>
                 <label className="text-xs font-medium text-foreground block mb-1">Path Folder Asal (Sumber Foto):</label>
-                <input
-                  type="text"
-                  value={localSourceDir}
-                  onChange={(e) => setLocalSourceDir(e.target.value)}
-                  placeholder="Contoh: D:\Photos\Original"
-                  className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={localSourceDir}
+                    onChange={(e) => setLocalSourceDir(e.target.value)}
+                    placeholder="Contoh: D:\Photos\Original"
+                    className="flex-1 px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
+                  />
+                  <button
+                    onClick={() => setIsSourceBrowserOpen(true)}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md font-semibold hover:bg-secondary/80 transition-colors flex items-center gap-2 shrink-0"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Browse...
+                  </button>
+                </div>
               </div>
+
+              {localSourceDir && (
+                <div className="mt-4 border border-border rounded-lg p-3 bg-muted/20">
+                  <h3 className="text-xs font-semibold flex items-center gap-2 mb-3">
+                    <ImageIcon className="w-4 h-4 text-emerald-500" />
+                    Preview Gambar (Maks 100)
+                    {loadingPreview && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground ml-2" />}
+                  </h3>
+                  
+                  {!loadingPreview && previewImages.length === 0 ? (
+                    <div className="text-xs text-muted-foreground italic text-center p-4">
+                      Tidak ditemukan gambar yang didukung (.jpg, .png, .webp, .heic) di folder ini.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-[250px] overflow-y-auto pr-1">
+                      {previewImages.map((img, idx) => (
+                        <div key={idx} className="group relative aspect-square bg-muted rounded-md overflow-hidden border border-border">
+                          <img 
+                            src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8003"}/api/v1/local-file/preview?path=${encodeURIComponent(img.path)}`}
+                            alt={img.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
+                            <p className="text-[9px] text-white truncate" title={img.name}>{img.name}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-medium text-foreground block mb-1">Path Folder Tujuan Output (Opsional):</label>
-                <input
-                  type="text"
-                  value={localOutputDir}
-                  onChange={(e) => setLocalOutputDir(e.target.value)}
-                  placeholder="Bila dikosongkan, backend akan membuat folder Temp"
-                  className="w-full px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={localOutputDir}
+                    onChange={(e) => setLocalOutputDir(e.target.value)}
+                    placeholder="Bila dikosongkan, backend akan membuat folder Temp"
+                    className="flex-1 px-3 py-2 text-xs rounded-md border border-border bg-background font-mono"
+                  />
+                  <button
+                    onClick={() => setIsOutputBrowserOpen(true)}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md font-semibold hover:bg-secondary/80 transition-colors flex items-center gap-2 shrink-0"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Browse...
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
+
+        <LocalFolderBrowser
+          isOpen={isSourceBrowserOpen}
+          onClose={() => setIsSourceBrowserOpen(false)}
+          title="Pilih Folder Asal Gambar"
+          onSelect={(path) => {
+            setLocalSourceDir(path);
+            loadPreviewImages(path);
+          }}
+        />
+
+        <LocalFolderBrowser
+          isOpen={isOutputBrowserOpen}
+          onClose={() => setIsOutputBrowserOpen(false)}
+          title="Pilih Folder Tujuan Hasil Kompresi"
+          onSelect={(path) => setLocalOutputDir(path)}
+        />
 
         {/* Compression Controls */}
         <div className="p-6 rounded-xl border border-border bg-card space-y-5">
