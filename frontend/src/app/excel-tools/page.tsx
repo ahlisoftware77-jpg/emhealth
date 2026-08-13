@@ -1390,6 +1390,10 @@ export default function ExcelToolsPage() {
                       <button
                         key={idx}
                         type="button"
+                          draggable={true}
+                          onDragStart={() => { draggedCol1Ref.current = col; }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleColumnReorder(1, col)}
                         onClick={() => {
                           if (isSelected) {
                             setKeyCols1(Array.from(selectedKeyCols1Set).filter((c: any) => c !== col).join(", "));
@@ -1397,7 +1401,7 @@ export default function ExcelToolsPage() {
                             setKeyCols1([...Array.from(selectedKeyCols1Set), col].join(", "));
                           }
                         }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm ${isSelected
+                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm cursor-grab active:cursor-grabbing ${isSelected
                             ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
                             : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
                           }`}
@@ -1494,6 +1498,10 @@ export default function ExcelToolsPage() {
                       <button
                         key={idx}
                         type="button"
+                          draggable={true}
+                          onDragStart={() => { draggedCol2Ref.current = col; }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleColumnReorder(2, col)}
                         onClick={() => {
                           if (isSelected) {
                             setKeyCols2(Array.from(selectedKeyCols2Set).filter((c: any) => c !== col).join(", "));
@@ -1501,7 +1509,7 @@ export default function ExcelToolsPage() {
                             setKeyCols2([...Array.from(selectedKeyCols2Set), col].join(", "));
                           }
                         }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm ${isSelected
+                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm cursor-grab active:cursor-grabbing ${isSelected
                             ? "bg-sky-400 text-slate-950 font-bold border-sky-300 ring-2 ring-sky-300/40"
                             : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
                           }`}
@@ -2545,7 +2553,7 @@ export default function ExcelToolsPage() {
                               setDedupCols([...Array.from(selectedDedupColsSet), col].join(", "));
                             }
                           }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm ${isSelected
+                          className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all border shadow-sm cursor-grab active:cursor-grabbing ${isSelected
                               ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400 ring-2 ring-emerald-400/40"
                               : "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 hover:text-white"
                             }`}
