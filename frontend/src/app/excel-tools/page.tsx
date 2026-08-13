@@ -1150,9 +1150,9 @@ export default function ExcelToolsPage() {
                     if (container2Rect) {
                         if (rect2.bottom < container2Rect.top || rect2.top > container2Rect.bottom) continue;
 
-                        const x1 = rect1.right - wrapperRect.left;
+                        const x1 = container1Rect.right - wrapperRect.left + 4;
                         const y1 = rect1.top + (rect1.height / 2) - wrapperRect.top;
-                        const x2 = rect2.left - wrapperRect.left;
+                        const x2 = container2Rect.left - wrapperRect.left - 4;
                         const y2 = rect2.top + (rect2.height / 2) - wrapperRect.top;
                         
                         newPaths.push({ x1, y1, x2, y2 });
