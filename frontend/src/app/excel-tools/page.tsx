@@ -192,11 +192,11 @@ export default function ExcelToolsPage() {
 
   // Memoized Sets of selected column names for zero-latency UI re-rendering
   const selectedKeyCols1Set = useMemo(() => {
-    return new Set(keyCols1.split(",").map((s) => s.trim()).filter(Boolean));
+    return new Set(keyCols1.split(",").map((s: any) => s.trim()).filter(Boolean));
   }, [keyCols1]);
 
   const selectedKeyCols2Set = useMemo(() => {
-    return new Set(keyCols2.split(",").map((s) => s.trim()).filter(Boolean));
+    return new Set(keyCols2.split(",").map((s: any) => s.trim()).filter(Boolean));
   }, [keyCols2]);
 
   // Word & Cell values sets for live cross-file highlight matching (Strictly bound to active selected Key Columns)
@@ -204,9 +204,9 @@ export default function ExcelToolsPage() {
     if (!file2Preview?.preview_data) return new Set<string>();
     const set = new Set<string>();
     const activeCols = Array.from(selectedKeyCols2Set);
-    file2Preview.preview_data.forEach((row) => {
+    file2Preview.preview_data.forEach((row: any) => {
       if (activeCols.length > 0) {
-        activeCols.forEach((colName) => {
+        activeCols.forEach((colName: any) => {
           const val = row[colName];
           if (val !== null && val !== undefined) {
             const str = String(val).trim().toLowerCase();
@@ -214,7 +214,7 @@ export default function ExcelToolsPage() {
           }
         });
       } else {
-        Object.values(row).forEach((val) => {
+        Object.values(row).forEach((val: any) => {
           if (val !== null && val !== undefined) {
             const str = String(val).trim().toLowerCase();
             if (str.length > 0) set.add(str);
@@ -229,9 +229,9 @@ export default function ExcelToolsPage() {
     if (!file1Preview?.preview_data) return new Set<string>();
     const set = new Set<string>();
     const activeCols = Array.from(selectedKeyCols1Set);
-    file1Preview.preview_data.forEach((row) => {
+    file1Preview.preview_data.forEach((row: any) => {
       if (activeCols.length > 0) {
-        activeCols.forEach((colName) => {
+        activeCols.forEach((colName: any) => {
           const val = row[colName];
           if (val !== null && val !== undefined) {
             const str = String(val).trim().toLowerCase();
@@ -239,7 +239,7 @@ export default function ExcelToolsPage() {
           }
         });
       } else {
-        Object.values(row).forEach((val) => {
+        Object.values(row).forEach((val: any) => {
           if (val !== null && val !== undefined) {
             const str = String(val).trim().toLowerCase();
             if (str.length > 0) set.add(str);
@@ -326,7 +326,7 @@ export default function ExcelToolsPage() {
 
     // Expand to the maximum length so no data is truncated if File 1 is longer
     const maxRows = Math.max(file2Preview.preview_data.length, file1Preview.preview_data.length);
-    const newData = Array.from({ length: maxRows }).map((_, idx) => {
+    const newData = Array.from({ length: maxRows }).map((_: any, idx: any) => {
       const row = file2Preview.preview_data[idx] || {};
       // Strict undefined check to handle falsey values correctly, fallback to "" if absolutely missing
       const val = file1Preview.preview_data[idx] ? (file1Preview.preview_data[idx][colName] ?? "") : "";
@@ -359,7 +359,7 @@ export default function ExcelToolsPage() {
     }
 
     const maxRows = Math.max(file1Preview.preview_data.length, file2Preview.preview_data.length);
-    const newData = Array.from({ length: maxRows }).map((_, idx) => {
+    const newData = Array.from({ length: maxRows }).map((_: any, idx: any) => {
       const row = file1Preview.preview_data[idx] || {};
       const val = file2Preview.preview_data[idx] ? (file2Preview.preview_data[idx][colName] ?? "") : "";
       return { ...row, [colName]: val };
@@ -418,7 +418,7 @@ export default function ExcelToolsPage() {
       const activeSortDir = fileNum === 1 ? sortDir1 : sortDir2;
       
       if (activeSortCol) {
-        dataToSave.sort((a, b) => {
+        dataToSave.sort((a: any, b: any) => {
           const valA = String(a[activeSortCol] ?? "").toLowerCase();
           const valB = String(b[activeSortCol] ?? "").toLowerCase();
           const comp = valA.localeCompare(valB, undefined, { numeric: true });
@@ -578,28 +578,28 @@ export default function ExcelToolsPage() {
     if (!confirm(`Apakah Anda yakin ingin menghapus kolom "${colName}" beserta seluruh isinya?`)) return;
     if (fileNum === 1 && file1Preview) {
       saveHistory(1);
-      const newColumns = file1Preview.columns.filter(c => c !== colName);
-      const newPreviewData = file1Preview.preview_data.map(row => {
+      const newColumns = file1Preview.columns.filter((c: any) => c !== colName);
+      const newPreviewData = file1Preview.preview_data.map((row: any) => {
         const newRow = { ...row };
         delete newRow[colName];
         return newRow;
       });
       setFile1Preview({ ...file1Preview, columns: newColumns, preview_data: newPreviewData });
       if (selectedKeyCols1Set.has(colName)) {
-        setKeyCols1(Array.from(selectedKeyCols1Set).filter(c => c !== colName).join(", "));
+        setKeyCols1(Array.from(selectedKeyCols1Set).filter((c: any) => c !== colName).join(", "));
       }
       setHasUnsavedChanges1(true);
     } else if (fileNum === 2 && file2Preview) {
       saveHistory(2);
-      const newColumns = file2Preview.columns.filter(c => c !== colName);
-      const newPreviewData = file2Preview.preview_data.map(row => {
+      const newColumns = file2Preview.columns.filter((c: any) => c !== colName);
+      const newPreviewData = file2Preview.preview_data.map((row: any) => {
         const newRow = { ...row };
         delete newRow[colName];
         return newRow;
       });
       setFile2Preview({ ...file2Preview, columns: newColumns, preview_data: newPreviewData });
       if (selectedKeyCols2Set.has(colName)) {
-        setKeyCols2(Array.from(selectedKeyCols2Set).filter(c => c !== colName).join(", "));
+        setKeyCols2(Array.from(selectedKeyCols2Set).filter((c: any) => c !== colName).join(", "));
       }
       setHasUnsavedChanges2(true);
     }
@@ -620,10 +620,10 @@ export default function ExcelToolsPage() {
       
       // Update columns array
       saveHistory(1);
-      const newColumns = file1Preview.columns.map(c => c === oldColName ? trimmedNewColName : c);
+      const newColumns = file1Preview.columns.map((c: any) => c === oldColName ? trimmedNewColName : c);
       
       // Update keys in preview_data
-      const newPreviewData = file1Preview.preview_data.map(row => {
+      const newPreviewData = file1Preview.preview_data.map((row: any) => {
         const newRow = { ...row };
         newRow[trimmedNewColName] = newRow[oldColName];
         delete newRow[oldColName];
@@ -634,7 +634,7 @@ export default function ExcelToolsPage() {
       
       // Update keyCols if it was selected
       if (selectedKeyCols1Set.has(oldColName)) {
-        const newKeyCols = Array.from(selectedKeyCols1Set).map(c => c === oldColName ? trimmedNewColName : c).join(", ");
+        const newKeyCols = Array.from(selectedKeyCols1Set).map((c: any) => c === oldColName ? trimmedNewColName : c).join(", ");
         setKeyCols1(newKeyCols);
       }
       
@@ -646,8 +646,8 @@ export default function ExcelToolsPage() {
       }
       
       saveHistory(2);
-      const newColumns = file2Preview.columns.map(c => c === oldColName ? trimmedNewColName : c);
-      const newPreviewData = file2Preview.preview_data.map(row => {
+      const newColumns = file2Preview.columns.map((c: any) => c === oldColName ? trimmedNewColName : c);
+      const newPreviewData = file2Preview.preview_data.map((row: any) => {
         const newRow = { ...row };
         newRow[trimmedNewColName] = newRow[oldColName];
         delete newRow[oldColName];
@@ -657,7 +657,7 @@ export default function ExcelToolsPage() {
       setFile2Preview({ ...file2Preview, columns: newColumns, preview_data: newPreviewData });
       
       if (selectedKeyCols2Set.has(oldColName)) {
-        const newKeyCols = Array.from(selectedKeyCols2Set).map(c => c === oldColName ? trimmedNewColName : c).join(", ");
+        const newKeyCols = Array.from(selectedKeyCols2Set).map((c: any) => c === oldColName ? trimmedNewColName : c).join(", ");
         setKeyCols2(newKeyCols);
       }
       
@@ -670,7 +670,7 @@ export default function ExcelToolsPage() {
   const handleAddRow = (fileNum: 1 | 2) => {
     if (fileNum === 1 && file1Preview) {
       const newRow: any = {};
-      file1Preview.columns.forEach((c) => (newRow[c] = ""));
+      file1Preview.columns.forEach((c: any) => (newRow[c] = ""));
       setFile1Preview({
         ...file1Preview,
         total_rows: file1Preview.total_rows + 1,
@@ -678,7 +678,7 @@ export default function ExcelToolsPage() {
       });
     } else if (fileNum === 2 && file2Preview) {
       const newRow: any = {};
-      file2Preview.columns.forEach((c) => (newRow[c] = ""));
+      file2Preview.columns.forEach((c: any) => (newRow[c] = ""));
       setFile2Preview({
         ...file2Preview,
         total_rows: file2Preview.total_rows + 1,
@@ -694,12 +694,12 @@ export default function ExcelToolsPage() {
     const query = (rawQuery.includes(" (") ? rawQuery.split(" (")[0] : rawQuery).toLowerCase();
     let rows = [...file1Preview.preview_data];
     if (query) {
-      rows = rows.filter((row) =>
-        Object.values(row).some((val) => val !== null && val !== undefined && String(val).toLowerCase().includes(query))
+      rows = rows.filter((row: any) =>
+        Object.values(row).some((val: any) => val !== null && val !== undefined && String(val).toLowerCase().includes(query))
       );
     }
     if (sortCol1) {
-      rows.sort((a, b) => {
+      rows.sort((a: any, b: any) => {
         const valA = String(a[sortCol1] ?? "").toLowerCase();
         const valB = String(b[sortCol1] ?? "").toLowerCase();
         const comp = valA.localeCompare(valB, undefined, { numeric: true });
@@ -715,12 +715,12 @@ export default function ExcelToolsPage() {
     const query = (rawQuery.includes(" (") ? rawQuery.split(" (")[0] : rawQuery).toLowerCase();
     let rows = [...file2Preview.preview_data];
     if (query) {
-      rows = rows.filter((row) =>
-        Object.values(row).some((val) => val !== null && val !== undefined && String(val).toLowerCase().includes(query))
+      rows = rows.filter((row: any) =>
+        Object.values(row).some((val: any) => val !== null && val !== undefined && String(val).toLowerCase().includes(query))
       );
     }
     if (sortCol2) {
-      rows.sort((a, b) => {
+      rows.sort((a: any, b: any) => {
         const valA = String(a[sortCol2] ?? "").toLowerCase();
         const valB = String(b[sortCol2] ?? "").toLowerCase();
         const comp = valA.localeCompare(valB, undefined, { numeric: true });
@@ -743,19 +743,19 @@ export default function ExcelToolsPage() {
   const [dedupJobResult, setDedupJobResult] = useExcelStoreState("dedupJobResult");
 
   const selectedDedupColsSet = useMemo(() => {
-    return new Set(dedupCols.split(",").map((s) => s.trim()).filter(Boolean));
+    return new Set(dedupCols.split(",").map((s: any) => s.trim()).filter(Boolean));
   }, [dedupCols]);
 
   // Client-side dedup calculation for preview
   const processedDedupData = useMemo(() => {
     if (!dedupFilePreview?.preview_data) return { rows: [], stats: { total: 0, removed: 0, kept: 0 } };
     
-    const targetCols = dedupCols.split(",").map(s => s.trim()).filter(Boolean);
+    const targetCols = dedupCols.split(",").map((s: any) => s.trim()).filter(Boolean);
     let rows = [...dedupFilePreview.preview_data];
 
     if (dedupSortCol && dedupSortCol.trim()) {
       const sCol = dedupSortCol.trim();
-      rows.sort((a, b) => {
+      rows.sort((a: any, b: any) => {
         const valA = a[sCol] ?? "";
         const valB = b[sCol] ?? "";
         
@@ -785,7 +785,7 @@ export default function ExcelToolsPage() {
     const grouped = new Map<string, number[]>();
     
     rows.forEach((row: any, idx: number) => {
-      const key = targetCols.map(col => String(row[col] ?? "").toLowerCase().trim()).join("|");
+      const key = targetCols.map((col: any) => String(row[col] ?? "").toLowerCase().trim()).join("|");
       if (!grouped.has(key)) {
         grouped.set(key, []);
       }
@@ -794,7 +794,7 @@ export default function ExcelToolsPage() {
 
     const statusMap = new Array(rows.length).fill("removed");
 
-    grouped.forEach((indices) => {
+    grouped.forEach((indices: any) => {
       if (indices.length === 1) {
         statusMap[indices[0]] = "kept";
       } else {
@@ -813,7 +813,7 @@ export default function ExcelToolsPage() {
       __dedup_status: statusMap[idx]
     }));
 
-    const removedCount = statusMap.filter(s => s === "removed").length;
+    const removedCount = statusMap.filter((s: any) => s === "removed").length;
 
     return {
       rows: processedRows,
@@ -960,8 +960,8 @@ export default function ExcelToolsPage() {
       const res = await ExcelAPI.compare({
         file1_name: file1Name,
         file2_name: file2Name,
-        key_columns_file1: keyCols1.split(",").map((s) => s.trim()).filter(Boolean),
-        key_columns_file2: (keyCols2.trim() || keyCols1.trim()).split(",").map((s) => s.trim()).filter(Boolean),
+        key_columns_file1: keyCols1.split(",").map((s: any) => s.trim()).filter(Boolean),
+        key_columns_file2: (keyCols2.trim() || keyCols1.trim()).split(",").map((s: any) => s.trim()).filter(Boolean),
         match_mode: matchMode,
         similarity_threshold: similarityThreshold,
         export_format: compareFormat,
@@ -1002,7 +1002,7 @@ export default function ExcelToolsPage() {
       }
       const res = await ExcelAPI.deduplicate({
         file_name: dedupFileName,
-        target_columns: dedupCols.split(",").map((s) => s.trim()),
+        target_columns: dedupCols.split(",").map((s: any) => s.trim()),
         keep_strategy: keepStrategy,
         sort_column: dedupSortCol.trim() || null,
         sort_order: dedupSortDir,
@@ -1027,7 +1027,7 @@ export default function ExcelToolsPage() {
     try {
       await ExcelAPI.upload(mergeFiles);
       const res = await ExcelAPI.merge({
-        file_names: mergeFiles.map((f) => f.name),
+        file_names: mergeFiles.map((f: any) => f.name),
         add_source_column: addSourceCol,
         export_format: "xlsx",
       });
@@ -1272,7 +1272,7 @@ export default function ExcelToolsPage() {
               />
               {file1Preview?.columns && file1Preview.columns.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2 max-h-40 overflow-y-auto p-2 border border-slate-700/60 dark:border-slate-700 rounded-lg bg-slate-900/60 dark:bg-slate-950/80 shadow-inner">
-                  {file1Preview.columns.map((col, idx) => {
+                  {file1Preview.columns.map((col: any, idx: any) => {
                     const isSelected = selectedKeyCols1Set.has(col);
                     return (
                       <button
@@ -1280,7 +1280,7 @@ export default function ExcelToolsPage() {
                         type="button"
                         onClick={() => {
                           if (isSelected) {
-                            setKeyCols1(Array.from(selectedKeyCols1Set).filter((c) => c !== col).join(", "));
+                            setKeyCols1(Array.from(selectedKeyCols1Set).filter((c: any) => c !== col).join(", "));
                           } else {
                             setKeyCols1([...Array.from(selectedKeyCols1Set), col].join(", "));
                           }
@@ -1376,7 +1376,7 @@ export default function ExcelToolsPage() {
               />
               {file2Preview?.columns && file2Preview.columns.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2 max-h-40 overflow-y-auto p-2 border border-slate-700/60 dark:border-slate-700 rounded-lg bg-slate-900/60 dark:bg-slate-950/80 shadow-inner">
-                  {file2Preview.columns.map((col, idx) => {
+                  {file2Preview.columns.map((col: any, idx: any) => {
                     const isSelected = selectedKeyCols2Set.has(col);
                     return (
                       <button
@@ -1384,7 +1384,7 @@ export default function ExcelToolsPage() {
                         type="button"
                         onClick={() => {
                           if (isSelected) {
-                            setKeyCols2(Array.from(selectedKeyCols2Set).filter((c) => c !== col).join(", "));
+                            setKeyCols2(Array.from(selectedKeyCols2Set).filter((c: any) => c !== col).join(", "));
                           } else {
                             setKeyCols2([...Array.from(selectedKeyCols2Set), col].join(", "));
                           }
@@ -1668,7 +1668,7 @@ export default function ExcelToolsPage() {
                   <div className="p-2 text-[10px] font-mono text-purple-300 uppercase tracking-wider font-bold bg-purple-950/80">
                     💡 Sugesti Nilai Kolom Terdeteksi:
                   </div>
-                  {searchSuggestions.map((item, sIdx) => (
+                  {searchSuggestions.map((item: any, sIdx: any) => (
                     <button
                       key={sIdx}
                       type="button"
@@ -1818,9 +1818,9 @@ export default function ExcelToolsPage() {
                     </div>
                   ) : file1Preview && file1Preview.columns?.length > 0 ? (
                     (() => {
-                      const normalizedKeyCols1 = new Set(Array.from(selectedKeyCols1Set).map(s => s.toLowerCase()));
+                      const normalizedKeyCols1 = new Set(Array.from(selectedKeyCols1Set).map((s: any) => s.toLowerCase()));
                       const visibleCols1 = showOnlyKeyColumns && normalizedKeyCols1.size > 0
-                        ? file1Preview.columns.filter((c) => normalizedKeyCols1.has(c.toLowerCase()))
+                        ? file1Preview.columns.filter((c: any) => normalizedKeyCols1.has(c.toLowerCase()))
                         : file1Preview.columns;
 
                       return (
@@ -1834,7 +1834,7 @@ export default function ExcelToolsPage() {
                             <thead className="bg-emerald-950 sticky top-0 border-b border-emerald-500/50 text-emerald-200 font-black shadow-sm">
                               <tr>
                                 <th className="p-2.5 border-r border-emerald-500/30 font-mono text-[10px] bg-emerald-950 text-emerald-400">#</th>
-                                {visibleCols1.map((col, idx) => {
+                                {visibleCols1.map((col: any, idx: any) => {
                                   const isSorted = sortCol1 === col;
                                   const isEditingThisColumn = editingColumn?.fileNum === 1 && editingColumn?.colIdx === idx;
                                   
@@ -1891,7 +1891,7 @@ export default function ExcelToolsPage() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border font-mono text-[11px]">
-                              {filteredPreviewData1.slice(0, previewLimit1).map((row, rIdx) => (
+                              {filteredPreviewData1.slice(0, previewLimit1).map((row: any, rIdx: any) => (
                                 <tr key={rIdx} className="hover:bg-emerald-500/10 transition-all">
                                   <td className="p-2 border-r border-border text-muted-foreground text-[10px] relative group w-12 text-center align-middle">
                                     <span className="group-hover:hidden">{rIdx + 1}</span>
@@ -1903,7 +1903,7 @@ export default function ExcelToolsPage() {
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                   </td>
-                                  {visibleCols1.map((col, cIdx) => {
+                                  {visibleCols1.map((col: any, cIdx: any) => {
                                     const rawVal = String(row[col] ?? "").trim();
                                     const lowerVal = rawVal.toLowerCase();
                                     const isMatch = lowerVal.length > 0 && file2ValuesSet.has(lowerVal);
@@ -2039,9 +2039,9 @@ export default function ExcelToolsPage() {
                     </div>
                   ) : file2Preview && file2Preview.columns?.length > 0 ? (
                     (() => {
-                      const normalizedKeyCols2 = new Set(Array.from(selectedKeyCols2Set).map(s => s.toLowerCase()));
+                      const normalizedKeyCols2 = new Set(Array.from(selectedKeyCols2Set).map((s: any) => s.toLowerCase()));
                       const visibleCols2 = showOnlyKeyColumns && normalizedKeyCols2.size > 0
-                        ? file2Preview.columns.filter((c) => normalizedKeyCols2.has(c.toLowerCase()))
+                        ? file2Preview.columns.filter((c: any) => normalizedKeyCols2.has(c.toLowerCase()))
                         : file2Preview.columns;
 
                       return (
@@ -2055,7 +2055,7 @@ export default function ExcelToolsPage() {
                           <thead className="bg-sky-950 sticky top-0 border-b border-sky-500/50 text-sky-200 font-black shadow-sm">
                             <tr>
                               <th className="p-2.5 border-r border-sky-500/30 font-mono text-[10px] bg-sky-950 text-sky-400">#</th>
-                              {visibleCols2.map((col, idx) => {
+                              {visibleCols2.map((col: any, idx: any) => {
                                 const isSorted = sortCol2 === col;
                                   const isEditingThisColumn = editingColumn?.fileNum === 2 && editingColumn?.colIdx === idx;
                                   
@@ -2112,7 +2112,7 @@ export default function ExcelToolsPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border font-mono text-[11px]">
-                            {filteredPreviewData2.slice(0, previewLimit2).map((row, rIdx) => (
+                            {filteredPreviewData2.slice(0, previewLimit2).map((row: any, rIdx: any) => (
                               <tr key={rIdx} className="hover:bg-sky-500/10 transition-all">
                                 <td className="p-2 border-r border-border text-muted-foreground text-[10px] relative group w-12 text-center align-middle">
                                     <span className="group-hover:hidden">{rIdx + 1}</span>
@@ -2124,7 +2124,7 @@ export default function ExcelToolsPage() {
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                   </td>
-                                {visibleCols2.map((col, cIdx) => {
+                                {visibleCols2.map((col: any, cIdx: any) => {
                                   const rawVal = String(row[col] ?? "").trim();
                                   const lowerVal = rawVal.toLowerCase();
                                   const isMatch = lowerVal.length > 0 && file1ValuesSet.has(lowerVal);
@@ -2232,16 +2232,16 @@ export default function ExcelToolsPage() {
                               <thead className="bg-emerald-950 sticky top-0 text-emerald-200 font-bold border-b border-emerald-500/40">
                                 <tr>
                                   <th className="p-3 border-r border-emerald-500/20">#</th>
-                                  {file1Preview.columns.map((col, idx) => (
+                                  {file1Preview.columns.map((col: any, idx: any) => (
                                     <th key={idx} className="p-3 border-r border-emerald-500/20 font-bold">{col}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border font-mono">
-                                {file1Preview.preview_data.slice(0, 50).map((row, rIdx) => (
+                                {file1Preview.preview_data.slice(0, 50).map((row: any, rIdx: any) => (
                                   <tr key={rIdx} className="hover:bg-emerald-500/5">
                                     <td className="p-2.5 border-r border-border text-muted-foreground">{rIdx + 1}</td>
-                                    {file1Preview.columns.map((col, cIdx) => {
+                                    {file1Preview.columns.map((col: any, cIdx: any) => {
                                       const rawVal = String(row[col] ?? "").trim();
                                       const lowerVal = rawVal.toLowerCase();
                                       const isMatch = rawVal && file2ValuesSet.has(lowerVal);
@@ -2286,16 +2286,16 @@ export default function ExcelToolsPage() {
                               <thead className="bg-sky-950 sticky top-0 text-sky-200 font-bold border-b border-sky-500/40">
                                 <tr>
                                   <th className="p-3 border-r border-sky-500/20">#</th>
-                                  {file2Preview.columns.map((col, idx) => (
+                                  {file2Preview.columns.map((col: any, idx: any) => (
                                     <th key={idx} className="p-3 border-r border-sky-500/20 font-bold">{col}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border font-mono">
-                                {file2Preview.preview_data.slice(0, 50).map((row, rIdx) => (
+                                {file2Preview.preview_data.slice(0, 50).map((row: any, rIdx: any) => (
                                   <tr key={rIdx} className="hover:bg-sky-500/5">
                                     <td className="p-2.5 border-r border-border text-muted-foreground">{rIdx + 1}</td>
-                                    {file2Preview.columns.map((col, cIdx) => {
+                                    {file2Preview.columns.map((col: any, cIdx: any) => {
                                       const rawVal = String(row[col] ?? "").trim();
                                       const lowerVal = rawVal.toLowerCase();
                                       const isMatch = rawVal && file1ValuesSet.has(lowerVal);
@@ -2404,7 +2404,7 @@ export default function ExcelToolsPage() {
                           type="button"
                           onClick={() => {
                             if (isSelected) {
-                              setDedupCols(Array.from(selectedDedupColsSet).filter((c) => c !== col).join(", "));
+                              setDedupCols(Array.from(selectedDedupColsSet).filter((c: any) => c !== col).join(", "));
                             } else {
                               setDedupCols([...Array.from(selectedDedupColsSet), col].join(", "));
                             }
@@ -2536,7 +2536,7 @@ export default function ExcelToolsPage() {
                         .filter((row: any) => {
                           if (!dedupSearchQuery) return true;
                           const q = dedupSearchQuery.toLowerCase();
-                          return Object.values(row).some(v => String(v).toLowerCase().includes(q));
+                          return Object.values(row).some((v: any) => String(v).toLowerCase().includes(q));
                         })
                         .slice(0, previewLimitDedup)
                         .map((row: any, rIdx: number) => {
@@ -2696,7 +2696,7 @@ export default function ExcelToolsPage() {
                 <div className="text-center p-8 text-muted-foreground italic text-sm">Belum ada riwayat file yang diunggah.</div>
               ) : (
                 <div className="space-y-3">
-                  {historyList.map(hist => (
+                  {historyList.map((hist: any) => (
                     <div key={hist.id} className="p-3 border border-border rounded-lg bg-background hover:border-cyan-500/50 transition-colors flex items-center justify-between group">
                       <div className="flex-1 min-w-0 pr-4">
                         <div className="font-medium text-sm text-foreground truncate">{hist.file_name}</div>
